@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yönetici Bağlantı Testi</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101c30;color:#fff;font:16px system-ui}
+main{max-width:460px;margin:35px auto;padding:22px}
+h1{font-size:26px}
+p{line-height:1.6;color:#cbd5e1}
+input,button{width:100%;padding:15px;margin:9px 0 20px;
+border-radius:10px;font:inherit}
+input{border:1px solid #64748b;background:#17263d;color:white}
+button{border:0;background:#51d3b0;color:#102334;font-weight:700}
+button:disabled{opacity:.5}
+#sonuc{white-space:pre-wrap;padding:15px;background:#17263d;
+border-radius:10px;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main>
+<h1>Yönetici bağlantı testi</h1>
+<p>Uygulama için oluşturduğun hesabı kullan.
+Supabase panel şifreni veya veritabanı şifreni girme.</p>
+
+<form id="form">
+<label for="email">E-posta</label>
+<input id="email" type="email" autocomplete="username" required>
+
+<label for="sifre">Uygulama şifresi</label>
+<input id="sifre" type="password"
+autocomplete="current-password" required>
+
+<button id="buton" type="submit">Bağlantıyı kontrol et</button>
+</form>
+
+<div id="sonuc" role="status">Test henüz yapılmadı.</div>
+<p>Bu sayfa çizelgeleri değiştirmez.
+Giriş bilgilerini tarayıcı depolamasına kaydetmez.</p>
+</main>
+
+<script>
+const URL = "https://rtqtildfytvyyrygcgyt.supabase.co";
+const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
+const form = document.getElementById("form");
+const email = document.getElementById("email");
+const sifre = document.getElementById("sifre");
+const buton = document.getElementById("buton");
+const sonuc = document.getElementById("sonuc");
+
+form.addEventListener("submit", async function(event) {
+  event.preventDefault();
+  buton.disabled = true;
+  sonuc.textContent = "Giriş kontrol ediliyor…";
+  let token = null;
+
+  try {
+    const cevap = await fetch(
+      URL + "/auth/v1/token?grant_type=password",
+      {
+        method: "POST",
+        headers: {
+          "apikey": KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: email.value.trim(),
+          password: sifre.value
+        })
+      }
+    );
+    sifre.value = "";
+    const oturum = await cevap.json();
+
+    if (!cevap.ok) {
+      sonuc.textContent =
+        "Giriş başarısız. HTTP " + cevap.status +
+        "\n" + (oturum.msg || oturum.error_description ||
+        "E-posta ve uygulama şifreni kontrol et.");
+      return;
+    }
+
+    token = oturum.access_token;
+    if (!token || !oturum.user?.id) {
+      throw new Error("Oturum bilgisi alınamadı.");
+    }
+
+    sonuc.textContent = "Giriş başarılı. Yönetici kaydı kontrol ediliyor…";
+
+    const kontrol = await fetch(
+      URL + "/rest/v1/app_admins?select=user_id&user_id=eq." +
+      encodeURIComponent(oturum.user.id),
+      {
+        headers: {
+          "apikey": KEY,
+          "Authorization": "Bearer " + token
+        },
+        cache: "no-store"
+      }
+    );
+
+    if (!kontrol.ok) {
+      sonuc.textContent =
+        "✓ Hesap girişi başarılı." +
+        "\nYönetici kaydı sorgulanamadı. HTTP " + kontrol.status +
+        "\nTablo veya erişim politikası ayrıca kontrol edilmeli.";
+      return;
+    }
+
+    const kayitlar = await kontrol.json();
+    const bulundu = Array.isArray(kayitlar) &&
+      kayitlar.some(k => k.user_id === oturum.user.id);
+
+    sonuc.textContent = bulundu
+      ? "✓ Hesap girişi başarılı.\n✓ Hesabın yönetici kaydı okunabildi." +
+        "\nBu sonuç tüm veri erişim kurallarını test etmez."
+      : "✓ Hesap girişi başarılı.\nYönetici kaydı görüntülenemedi." +
+        "\nKayıt eksik olabilir veya erişim politikası gizliyor olabilir.";
+  } catch (hata) {
+    sonuc.textContent =
+      "Test tamamlanamadı. Bağlantı veya yanıt hatası oluştu." +
+      "\nBu ekranın görüntüsünü paylaşabilirsin; şifreni paylaşma.";
+  } finally {
+    sifre.value = "";
+    if (token) {
+      try {
+        await fetch(URL + "/auth/v1/logout?scope=local", {
+          method: "POST",
+          headers: {
+            "apikey": KEY,
+            "Authorization": "Bearer " + token
+          }
+        });
+      } catch (_) {}
+    }
+    token = null;
+    buton.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
