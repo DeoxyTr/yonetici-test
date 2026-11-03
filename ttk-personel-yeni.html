@@ -139,7 +139,7 @@ function mine() {
   return people.find(
     person => person.key === personKey
   ) || null;
-}{if(!profile)return null;const found=people.filter(p=>p.name.localeCompare(profile.full_name,'tr',{sensitivity:'base'})===0);return found.length===1?found[0]:null}
+}
 function personByKey(k){return people.find(p=>p.key===k)}
 function nav(){return `<div class="cal-head"><button type="button" class="chip" data-month="-1">‹</button><div class="month-title">${esc(label(month))}</div><button type="button" class="chip" data-month="1">›</button></div>`}
 function bindNav(root){root.querySelectorAll('[data-month]').forEach(b=>b.onclick=()=>{const [y,m]=month.split('-').map(Number);month=keyOf(new Date(y,m-1+Number(b.dataset.month),1));selected=null;void load()})}
