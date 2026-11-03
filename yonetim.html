@@ -1163,6 +1163,250 @@ publicationCheckButton.onclick = () => {
 };
 
 // YAYIN KAPSAMI VE ÖN KONTROL SONU
+// TEK PERSONELLİ TEST KOPYASI — sürüm 1
+
+const singleTestSection = document.createElement("section");
+
+const singleTestTitle = document.createElement("h2");
+singleTestTitle.textContent = "Tek personellik test";
+
+const singleTestHelp = document.createElement("p");
+singleTestHelp.className = "muted";
+singleTestHelp.textContent =
+  "Seçtiğin yalnızca bir satırın vardiya ve izin bilgileri " +
+  "TEST-4D769C60 hesabı için ayrı test tablosuna kopyalanır. " +
+  "Taslak kapsamı ve gerçek yayınlar değiştirilmez.";
+
+const singleTestSelect = document.createElement("select");
+singleTestSelect.setAttribute(
+  "aria-label",
+  "Test kopyası oluşturulacak kişi"
+);
+singleTestSelect.style.display = "block";
+singleTestSelect.style.width = "100%";
+singleTestSelect.style.margin = "12px 0";
+
+const singleTestButton = document.createElement("button");
+singleTestButton.type = "button";
+singleTestButton.textContent =
+  "Seçilen kişinin test kopyasını oluştur";
+
+const singleTestMessage = document.createElement("p");
+singleTestMessage.setAttribute("role", "status");
+singleTestMessage.style.whiteSpace = "pre-wrap";
+
+singleTestSection.append(
+  singleTestTitle,
+  singleTestHelp,
+  singleTestSelect,
+  singleTestButton,
+  singleTestMessage
+);
+
+$("onizleme").append(singleTestSection);
+
+function populateSingleTestPeople() {
+  singleTestSelect.replaceChildren();
+  singleTestMessage.textContent = "";
+
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = "Test için yalnızca bir kişi seç";
+  singleTestSelect.append(empty);
+
+  if (!draft) return;
+
+  draft.people.forEach((person, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = person.name;
+    singleTestSelect.append(option);
+  });
+}
+
+const previewBeforeSingleTest = preview;
+
+preview = function (result) {
+  previewBeforeSingleTest(result);
+  populateSingleTestPeople();
+};
+
+singleTestButton.onclick = async () => {
+  if (busy) return;
+
+  const job = generation;
+  let requestStarted = false;
+
+  try {
+    draftSessionCheck();
+
+    if (!draft || singleTestSelect.value === "") {
+      throw new Error("Önce test kopyası için bir kişi seç.");
+    }
+
+    if ($("donem").value !== draft.result.month.key) {
+      throw new Error("Çizelge ayı PDF'den okunan ayla uyuşmuyor.");
+    }
+
+    const index = Number(singleTestSelect.value);
+    const person = draft.people[index];
+    const editor = leaveEditors[index];
+
+    if (!person || !editor) {
+      throw new Error("Seçilen satır bulunamadı. Taslağı yeniden aç.");
+    }
+
+    validateLeave(editor);
+    refreshLeaveSummary();
+
+    if (editor.invalid) {
+      throw new Error("Seçilen kişinin izin tarihlerini düzelt.");
+    }
+
+    if (editor.conflict) {
+      throw new Error(
+        "Seçilen kişinin izin aralığında vardiya kodu var; önce kontrol et."
+      );
+    }
+
+    if (person.detectedLeaves?.length > 1) {
+      throw new Error(
+        "Bu test editörü birden fazla ayrı izin aralığını desteklemiyor."
+      );
+    }
+
+    const codes = [...new Set(Object.values(person.s || {}))];
+
+    if (!codes.length && !person.leave) {
+      throw new Error("Seçilen satırda vardiya veya izin bilgisi yok.");
+    }
+
+    const testShifts = {};
+
+    for (const code of codes) {
+      const shift = draft.result.month.shifts?.[code];
+
+      if (!shift?.t) {
+        throw new Error(code + " kodunun saati okunamadı.");
+      }
+
+      testShifts[code] = { ...shift };
+    }
+
+    const targets = profiles.filter(profile =>
+      profile.personnel_code === "TEST-4D769C60" &&
+      profile.active === true
+    );
+
+    if (targets.length !== 1) {
+      throw new Error(
+        "Aktif TEST-4D769C60 profili tek bir kayıt olarak bulunamadı."
+      );
+    }
+
+    const target = targets[0];
+
+    const payload = JSON.parse(JSON.stringify({
+      schemaVersion: 1,
+      testOnly: true,
+      month: {
+        key: draft.result.month.key,
+        y: draft.result.month.y,
+        m: draft.result.month.m,
+        title: draft.result.month.title,
+        shifts: testShifts
+      },
+      person: {
+        name: person.name,
+        s: person.s || {},
+        leave: person.leave || null
+      }
+    }));
+
+    const approved = window.confirm(
+      "Yalnızca test kopyası oluşturulsun mu?\n\n" +
+      "Kaynak kişi: " + person.name + "\n" +
+      "Ay: " + payload.month.title + "\n" +
+      "Hedef: " + target.full_name + " / TEST-4D769C60\n\n" +
+      "Bu kişinin adı, vardiyaları ve izin tarihleri test hesabına " +
+      "gösterilecek. Test erişimi en fazla 24 saat sürecek.\n" +
+      "Gerçek yayınlar ve taslak kapsamı değiştirilmeyecek."
+    );
+
+    if (!approved) return;
+
+    draftSessionCheck();
+    busy = true;
+    singleTestButton.disabled = true;
+    singleTestMessage.textContent = "Test kopyası oluşturuluyor…";
+
+    requestStarted = true;
+
+    const response = await fetch(
+      URL + "/rest/v1/staff_schedule_tests",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({
+          target_user_id: target.user_id,
+          month_key: payload.month.key,
+          title: payload.month.title + " — TEST",
+          data: payload
+        })
+      }
+    );
+
+    if (job !== generation || !token) return;
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+
+      throw new Error(
+        "Test kaydı isteği başarısız. HTTP " + response.status +
+        (detail?.message ? "\n" + detail.message : "")
+      );
+    }
+
+    const rows = await response.json().catch(() => null);
+    const id = Array.isArray(rows) ? rows[0]?.id : null;
+
+    singleTestMessage.textContent =
+      "✓ Test kopyası oluşturuldu.\n" +
+      "Kaynak kişi: " + person.name + "\n" +
+      "Hedef: Test Personeli / TEST-4D769C60\n" +
+      (id ? "Test kimliği: " + id + "\n" : "") +
+      "Gerçek yayınlar ve taslak kapsamı değiştirilmedi.";
+  } catch (error) {
+    if (job === generation) {
+      singleTestMessage.textContent =
+        (requestStarted
+          ? "Kayıt sonucu doğrulanamadı. Yeniden oluşturmadan önce " +
+            "personel test ekranında kontrol et.\n"
+          : "") +
+        error.message;
+    }
+  } finally {
+    busy = false;
+    singleTestButton.disabled = false;
+  }
+};
+
+new MutationObserver(() => {
+  if ($("panel").hidden) {
+    singleTestSelect.replaceChildren();
+    singleTestMessage.textContent = "";
+  }
+}).observe($("panel"), {
+  attributes: true,
+  attributeFilter: ["hidden"]
+});
+
+// TEK PERSONELLİ TEST KOPYASI SONU
 </script>
 </body>
 </html>
