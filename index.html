@@ -149,7 +149,23 @@ $('form').onsubmit = async event => {
     const session=await response.json();
     token=session.access_token || null;
     if(job!==generation) return;
-    if(!response.ok) throw new Error('Giriş başarısız. HTTP '+response.status+'\nE-posta ve uygulama şifreni kontrol et.');
+    if (!response.ok) {
+  const code =
+    session.error_code ||
+    session.code ||
+    session.error;
+
+  const detail =
+    session.error_description ||
+    session.msg ||
+    session.message;
+
+  throw new Error(
+    'Giriş başarısız. HTTP ' + response.status +
+    (code ? '\nKod: ' + code : '') +
+    (detail ? '\nAçıklama: ' + detail : '')
+  );
+}
     if(!token || !session.user?.id) throw new Error('Oturum bilgisi alınamadı.');
     $('sonuc').textContent='Giriş başarılı. Çizelge alınıyor…';
     const fragment=document.createDocumentFragment();
