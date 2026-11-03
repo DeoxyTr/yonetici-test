@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yönetici — PDF Önizleme</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101c30;color:#fff;font:16px system-ui}
+main{max-width:1000px;margin:auto;padding:22px}
+h1{font-size:26px}
+p,li{line-height:1.6}
+input,button,select{padding:12px;border-radius:9px;font:inherit}
+input,select{background:#17263d;color:white;border:1px solid #64748b}
+form input,form button{display:block;width:100%;margin:10px 0 20px}
+button{background:#51d3b0;color:#102334;border:0;cursor:pointer}
+button:disabled{opacity:.5}
+#durum{white-space:pre-wrap;background:#17263d;padding:15px;
+border-radius:10px;margin:18px 0;overflow-wrap:anywhere}
+#uyarilar{color:#ffd58a}
+.scroll{overflow:auto;margin:20px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:10px;border:1px solid #475569;text-align:left}
+th{background:#17263d}
+td:first-child{min-width:180px}
+td select{min-width:230px}
+[hidden]{display:none!important}
+.muted{color:#cbd5e1}
+</style>
+</head>
+<body>
+<main>
+<h1>Yönetici — PDF önizleme</h1>
+<p class="muted">Bu sürüm veri yayınlamaz veya çizelge kaydetmez.</p>
+
+<form id="girisForm">
+<label for="email">Yönetici e-posta</label>
+<input id="email" type="email" autocomplete="username" required>
+<label for="sifre">Uygulama şifresi</label>
+<input id="sifre" type="password"
+autocomplete="current-password" required>
+<button id="giris">Yönetici girişi</button>
+</form>
+
+<div id="panel" hidden>
+<button id="cikis" type="button">Çıkış yap ve ekranı temizle</button>
+<h2>PDF seç</h2>
+<p>PDF dosyasını GitHub deposuna yükleme.
+Buradaki dosya seçiciden cihazındaki PDF'yi seç.</p>
+<input id="pdf" type="file" accept=".pdf,application/pdf">
+<p class="muted">
+PDF bu kod tarafından sunucuya gönderilmez.
+PDF.js kütüphanesi dış kaynaktan yüklenir.
+</p>
+</div>
+
+<div id="durum" role="status">Henüz giriş yapılmadı.</div>
+<section id="onizleme" hidden>
+<h2 id="baslik"></h2>
+<p id="ozet"></p>
+<ul id="uyarilar"></ul>
+<div class="scroll"><table id="tablo"></table></div>
+<p class="muted">
+Hesap seçimleri bu aşamada yalnızca ekrandadır; kaydedilmez.
+İsim benzerliğiyle otomatik hesap eşleştirilmez.
+İzinleri, boş günleri, vardiya saatlerini ve atlanan sayfaları
+orijinal PDF ile kontrol et.
+</p>
+</section>
+</main>
+
+<script type="module">
+const URL = "https://rtqtildfytvyyrygcgyt.supabase.co";
+const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
+const $ = id => document.getElementById(id);
+let token = null;
+let profiles = [];
+let libraries = null;
+let generation = 0;
+let busy = false;
+let expiresAt = 0;
+
+function status(text) {
+  $("durum").textContent = text;
+}
+
+function clearPreview() {
+  $("onizleme").hidden = true;
+  $("tablo").replaceChildren();
+  $("uyarilar").replaceChildren();
+  $("baslik").textContent = "";
+  $("ozet").textContent = "";
+}
+
+async function closeSession() {
+  generation++;
+  const oldToken = token;
+  token = null;
+  expiresAt = 0;
+  profiles = [];
+  $("panel").hidden = true;
+  $("girisForm").hidden = false;
+  $("sifre").value = "";
+  $("pdf").value = "";
+  clearPreview();
+  status("Oturum kapatıldı. Ekran temizlendi.");
+  if (oldToken) {
+    try {
+      await fetch(URL + "/auth/v1/logout?scope=local", {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + oldToken
+        }
+      });
+    } catch (_) {}
+  }
+}
+
+$("cikis").onclick = closeSession;
+window.addEventListener("pagehide", () => {
+  void closeSession();
+});
+
+async function readTable(path) {
+  if (!token || Date.now() >= expiresAt) {
+    throw new Error("Oturum süresi doldu. Çıkış yapıp tekrar giriş yap.");
+  }
+  const response = await fetch(URL + "/rest/v1/" + path, {
+    headers: {
+      apikey: KEY,
+      Authorization: "Bearer " + token
+    },
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    throw new Error("Veri okunamadı. HTTP " + response.status);
+  }
+  return response.json();
+}
+
+$("girisForm").onsubmit = async event => {
+  event.preventDefault();
+  if (busy) return;
+  busy = true;
+  $("giris").disabled = true;
+  status("Yönetici girişi kontrol ediliyor…");
+
+  try {
+    const response = await fetch(
+      URL + "/auth/v1/token?grant_type=password",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: $("email").value.trim(),
+          password: $("sifre").value
+        })
+      }
+    );
+    $("sifre").value = "";
+    const session = await response.json();
+
+    if (!response.ok) {
+      throw new Error("Giriş başarısız. E-posta ve uygulama şifreni kontrol et.");
+    }
+
+    token = session.access_token;
+    if (!token || !session.user?.id) {
+      throw new Error("Oturum bilgisi alınamadı.");
+    }
+
+    expiresAt = Date.now() + Number(session.expires_in || 3600) * 1000;
+    const admins = await readTable(
+      "app_admins?select=user_id&user_id=eq." +
+      encodeURIComponent(session.user.id)
+    );
+
+    if (!Array.isArray(admins) ||
+        !admins.some(row => row.user_id === session.user.id)) {
+      throw new Error("Bu hesapta yönetici kaydı bulunamadı.");
+    }
+
+    profiles = await readTable(
+      "staff_profiles?select=user_id,personnel_code,full_name,active" +
+      "&active=eq.true&order=full_name.asc&limit=1000"
+    );
+    if (!Array.isArray(profiles)) throw new Error("Profil yanıtı geçersiz.");
+    if (profiles.length >= 1000) {
+      throw new Error("Profil listesi sınırına ulaşıldı; sayfalama gerekli.");
+    }
+
+    $("girisForm").hidden = true;
+    $("panel").hidden = false;
+    status(
+      "✓ Yönetici girişi başarılı.\n" +
+      profiles.length + " aktif personel profili alındı.\n" +
+      "Şimdi PDF seçebilirsin."
+    );
+  } catch (error) {
+    await closeSession();
+    status(error.message);
+  } finally {
+    $("sifre").value = "";
+    $("giris").disabled = false;
+    busy = false;
+  }
+};
+
+function cell(row, text, tag = "td") {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  row.append(element);
+  return element;
+}
+
+function preview(result) {
+  clearPreview();
+  const month = result.month;
+  $("baslik").textContent = month.title + " — Kontrol taslağı";
+  $("ozet").textContent =
+    result.pageCount + " sayfa incelendi; " +
+    result.schedulePageCount + " sayfada gün tablosu bulundu; " +
+    month.people.length + " aday personel satırı okundu.";
+
+  for (const warning of result.warnings) {
+    const li = document.createElement("li");
+    li.textContent = warning;
+    $("uyarilar").append(li);
+  }
+
+  const head = document.createElement("thead");
+  const header = document.createElement("tr");
+  cell(header, "PDF'deki kişi", "th");
+  cell(header, "Hesap eşleştirmesi (kaydedilmez)", "th");
+  cell(header, "Kaynak sayfa", "th");
+  cell(header, "Okunan vardiyalar", "th");
+  head.append(header);
+
+  const body = document.createElement("tbody");
+
+  for (const person of month.people) {
+    const row = document.createElement("tr");
+    cell(row, person.name);
+    const mapping = cell(row, "");
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", person.name + " için hesap");
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = "Hesap seç — otomatik eşleştirilmedi";
+    select.append(empty);
+
+    for (const profile of profiles) {
+      const option = document.createElement("option");
+      option.value = profile.user_id;
+      option.textContent =
+        profile.full_name + " · " + profile.personnel_code;
+      select.append(option);
+    }
+
+    mapping.append(select);
+    cell(row, String(person.sourcePage));
+
+    const values = Object.entries(person.s)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([day, code]) => {
+        const time = month.shifts[code]?.t || "SAAT OKUNAMADI";
+        return day + ". gün: " + code + " (" + time + ")";
+      });
+
+    cell(row, values.length ? values.join(" | ") : "Vardiya okunamadı");
+    body.append(row);
+  }
+
+  $("tablo").append(head, body);
+  $("onizleme").hidden = false;
+}
+
+$("pdf").onchange = async event => {
+  const file = event.target.files[0];
+  if (!file || busy) return;
+  if (!token || Date.now() >= expiresAt) {
+    status("Önce yeniden yönetici girişi yap.");
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    status("Bu önizleme için en fazla 20 MB PDF seç.");
+    $("pdf").value = "";
+    return;
+  }
+
+  busy = true;
+  $("pdf").disabled = true;
+  const job = generation;
+  clearPreview();
+  status("PDF okuyucusu yükleniyor…");
+
+  try {
+    if (!libraries) {
+      libraries = Promise.all([
+        import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs"),
+        import("./parser.js")
+      ]).catch(error => {
+        libraries = null;
+        throw error;
+      });
+    }
+
+    const [pdfjs, parser] = await libraries;
+    pdfjs.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs";
+
+    if (job !== generation || !token) return;
+    status("PDF okunuyor. Büyük dosyalarda biraz sürebilir…");
+    const data = new Uint8Array(await file.arrayBuffer());
+    const result = await parser.parsePdf(pdfjs, data);
+    if (job !== generation || !token) return;
+
+    preview(result);
+    status(
+      "✓ PDF önizlemesi hazır.\n" +
+      "Henüz hiçbir çizelge kaydedilmedi veya yayınlanmadı.\n" +
+      "İsimleri ve vardiyaları orijinal PDF ile karşılaştır."
+    );
+  } catch (error) {
+    if (job === generation) {
+      status(
+        "PDF önizlemesi tamamlanamadı:\n" + error.message +
+        "\nDosyalar eksik olabilir veya PDF biçimi uyumsuz olabilir."
+      );
+    }
+  } finally {
+    $("pdf").value = "";
+    $("pdf").disabled = false;
+    busy = false;
+  }
+};
+</script>
+</body>
+</html>
