@@ -1,0 +1,1539 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TTK Yönetici — Taslak ve Yayın</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101c30;color:#fff;font:16px system-ui}
+main{max-width:1300px;margin:auto;padding:22px}
+h1{font-size:26px}p,li{line-height:1.6}
+input,button,select{padding:12px;border-radius:9px;font:inherit}
+input,select{background:#17263d;color:white;border:1px solid #64748b}
+form input,form button{display:block;width:100%;margin:10px 0 20px}
+button{background:#51d3b0;color:#102334;border:0;cursor:pointer}
+button:disabled,input:disabled{opacity:.5;cursor:not-allowed}
+#durum{white-space:pre-wrap;background:#17263d;padding:15px;border-radius:10px;margin:18px 0;overflow-wrap:anywhere}
+#uyarilar{color:#ffd58a}.scroll{overflow:auto;margin:20px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:10px;border:1px solid #475569;text-align:left;vertical-align:top}
+th{background:#17263d}td:first-child{min-width:180px}td select{min-width:230px}
+[hidden]{display:none!important}.muted{color:#cbd5e1}
+.period{background:#17263d;padding:16px;border-radius:10px}.period label{display:block;margin-bottom:8px}
+.leave-box{min-width:220px}.leave-box label{display:block;margin-bottom:10px}
+.leave-box input{display:block;width:100%;margin-top:5px}.leave-box button{padding:8px 12px}
+.leave-note{display:block;margin-top:10px;line-height:1.5}.warn{color:#ffd58a}.ok{color:#7ce5c6}
+.shift-cell{min-width:260px;line-height:1.6}
+</style>
+</head>
+<body>
+<main>
+<h1>Yönetici — PDF, taslak ve ortak yayın</h1>
+<p class="muted">Sürüm: yerleske-badi-yayin-2. Taslak kaydı ve ortak yayın ayrı işlemlerdir. Ortak yayın aynı ayın önceki ortak çizelgesini değiştirir.</p>
+<form id="girisForm">
+<label for="email">Yönetici kullanıcı adı veya e-posta</label>
+<input id="email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="yildiray.cam" required>
+<label for="sifre">Uygulama şifresi</label>
+<input id="sifre" type="password" autocomplete="current-password" required>
+<button id="giris">Yönetici girişi</button>
+</form>
+<div id="panel" hidden>
+<button id="cikis" type="button">Çıkış yap ve ekranı temizle</button>
+<h2>PDF seç</h2>
+<p>PDF dosyasını GitHub deposuna yükleme. Buradaki dosya seçiciden cihazındaki PDF'yi seç.</p>
+<input id="pdf" type="file" accept=".pdf,application/pdf">
+<p class="muted">PDF bu kod tarafından sunucuya gönderilmez. PDF.js kütüphanesi dış kaynaktan yüklenir.</p>
+</div>
+<div id="durum" role="status">Henüz giriş yapılmadı.</div>
+<section id="onizleme" hidden>
+<h2 id="baslik"></h2><p id="ozet"></p><ul id="uyarilar"></ul>
+<div class="period">
+<label for="donem">PDF'nin çizelge ayı</label><input id="donem" type="month">
+<p class="muted">Ay ve yıl PDF'den doldurulur. Başlıkla karşılaştır.
+Sarı alanlardan okunan izin tarihleri adaydır; yayın öncesi orijinal PDF ile kontrol edilmelidir.</p>
+</div>
+<div class="scroll"><table id="tablo"></table></div>
+<p id="izinOzet" role="status" aria-live="polite"></p>
+<p class="muted">Hesap seçimleri ve izinler Taslak kaydet ile saklanabilir. Taslak kaydetmek yayınlama yapmaz.
+Kaydedilmemiş değişiklikler yeni PDF seçiminde, yenilemede veya çıkışta temizlenir.
+İsim benzerliğiyle otomatik hesap eşleştirilmez. Boş günler kendiliğinden izin sayılmaz.
+Bu editör kişi başına tek izin aralığı destekler; birden fazla ayrı aralık bulunduğunda uyarı verir ve otomatik doldurmaz.
+Sarı dikdörtgen dışındaki işaretleri ve atlanan sayfaları ayrıca kontrol et.</p>
+</section>
+</main>
+<script type="module">
+const URL = "https://rtqtildfytvyyrygcgyt.supabase.co";
+const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
+const $ = id => document.getElementById(id);
+function adminLoginEmail(value) {
+  const input = value.trim().toLowerCase();
+  if (input.includes('@')) return input;
+  if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(input)) throw new Error('Geçerli bir kullanıcı adı yaz. Örnek: yildiray.cam');
+  return input + '@personel.example.com';
+}
+
+let token = null, profiles = [], libraries = null, generation = 0;
+let busy = false, expiresAt = 0, draft = null, leaveEditors = [];
+function status(text) { $("durum").textContent = text; }
+function clearPreview() {
+  draft = null; leaveEditors = [];
+  $("onizleme").hidden = true;
+  $("tablo").replaceChildren(); $("uyarilar").replaceChildren();
+  $("baslik").textContent = ""; $("ozet").textContent = "";
+  $("donem").value = ""; $("izinOzet").textContent = "";
+}
+async function closeSession() {
+  generation++;
+  const oldToken = token;
+  token = null; expiresAt = 0; profiles = [];
+  $("panel").hidden = true; $("girisForm").hidden = false;
+  $("sifre").value = ""; $("pdf").value = "";
+  clearPreview(); status("Oturum kapatıldı. Ekran temizlendi.");
+  if (oldToken) {
+    try { await fetch(URL + "/auth/v1/logout?scope=local", {
+      method:"POST", headers:{apikey:KEY,Authorization:"Bearer " + oldToken}
+    }); } catch (_) {}
+  }
+}
+$("cikis").onclick = closeSession;
+window.addEventListener("pagehide", () => { void closeSession(); });
+async function readTable(path) {
+  if (!token || Date.now() >= expiresAt) throw new Error("Oturum süresi doldu. Çıkış yapıp tekrar giriş yap.");
+  const response = await fetch(URL + "/rest/v1/" + path, {
+    headers:{apikey:KEY,Authorization:"Bearer " + token},cache:"no-store"
+  });
+  if (!response.ok) throw new Error("Veri okunamadı. HTTP " + response.status);
+  return response.json();
+}
+$("girisForm").onsubmit = async event => {
+  event.preventDefault(); if (busy) return;
+  busy = true; $("giris").disabled = true;
+  const job = generation;
+  status("Yönetici girişi kontrol ediliyor…");
+  try {
+    const response = await fetch(URL + "/auth/v1/token?grant_type=password", {
+      method:"POST",headers:{apikey:KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({email:adminLoginEmail($("email").value),password:$("sifre").value})
+    });
+    $("sifre").value = "";
+    const session = await response.json();
+    if (job !== generation) return;
+    if (!response.ok) throw new Error("Giriş başarısız. Kullanıcı adını veya e-postanı ve uygulama şifreni kontrol et.");
+    token = session.access_token;
+    if (!token || !session.user?.id) throw new Error("Oturum bilgisi alınamadı.");
+    expiresAt = Date.now() + Number(session.expires_in || 3600)*1000;
+    const admins = await readTable("app_admins?select=user_id&user_id=eq." + encodeURIComponent(session.user.id));
+    if (job !== generation) return;
+    if (!Array.isArray(admins) || !admins.some(row=>row.user_id === session.user.id))
+      throw new Error("Bu hesapta yönetici kaydı bulunamadı.");
+    const loadedProfiles = await readTable("staff_profiles?select=user_id,personnel_code,full_name,active,roster_person_key&active=eq.true&order=full_name.asc&limit=1000");
+    if (job !== generation) return;
+    if (!Array.isArray(loadedProfiles)) throw new Error("Profil yanıtı geçersiz.");
+    if (loadedProfiles.length >= 1000) throw new Error("Profil listesi sınırına ulaşıldı; sayfalama gerekli.");
+    profiles = loadedProfiles;
+    $("girisForm").hidden = true; $("panel").hidden = false;
+    status("✓ Yönetici girişi başarılı.\n" + profiles.length + " aktif personel profili alındı.\nŞimdi PDF seçebilirsin.");
+  } catch (error) {
+    if (job === generation) { await closeSession(); status(error.message); }
+  } finally { $("sifre").value = ""; $("giris").disabled = false; busy = false; }
+};
+function cell(row,text,tag="td") {
+  const el = document.createElement(tag); el.textContent = text; row.append(el); return el;
+}
+function monthBounds(period) {
+  const match = /^(\d{4})-(\d{2})$/.exec(period);
+  if (!match) return null;
+  const year = Number(match[1]), month = Number(match[2]);
+  if (year<1 || month<1 || month>12) return null;
+  const leap = year%4===0 && (year%100!==0 || year%400===0);
+  const lengths = [31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+  return {min:period+"-01",max:period+"-"+String(lengths[month-1]).padStart(2,"0")};
+}
+function formatDate(value) { return value.split("-").reverse().join("."); }
+function validateLeave(editor) {
+  const {person,start,end,note} = editor;
+  const period = $("donem").value, bounds = monthBounds(period);
+  person.leave = null; editor.invalid = false; editor.conflict = false;
+  note.className = "leave-note";
+  start.setCustomValidity(""); end.setCustomValidity("");
+  if (!start.value && !end.value) {
+    note.textContent = person.detectedLeaves?.length > 1
+      ? "Birden fazla ayrı aralık bulundu. Uyarılardaki bilgiyi ve PDF'yi kontrol et."
+      : bounds ? "İzin aralığı girilmedi; boş günler izin sayılmadı." : "Önce çizelge ayını seç.";
+    return;
+  }
+  function invalid(message,field) {
+    editor.invalid = true; note.className = "leave-note warn";
+    note.textContent = message; field.setCustomValidity(message);
+  }
+  if (!bounds) { invalid("Önce geçerli bir çizelge ayı seç.",start); return; }
+  if (!start.value || !end.value) { invalid("Başlangıç ve bitiş tarihlerini birlikte gir.",!start.value?start:end); return; }
+  if (start.value.slice(0,7)!==period || end.value.slice(0,7)!==period || !start.validity.valid || !end.validity.valid) {
+    invalid("İki tarih de seçilen çizelge ayı içinde olmalı.",end); return;
+  }
+  if (end.value < start.value) { invalid("Bitiş tarihi başlangıç tarihinden önce olamaz.",end); return; }
+  person.leave = {start:start.value,end:end.value,source:editor.origin};
+  const firstDay = Number(start.value.slice(8)), lastDay = Number(end.value.slice(8));
+  const conflicts = Object.entries(person.s || {}).filter(([day,code])=>
+    String(code??"").trim()!=="" && Number(day)>=firstDay && Number(day)<=lastDay)
+    .sort((a,b)=>Number(a[0])-Number(b[0])).map(([day,code])=>day+". gün ("+code+")");
+  const text = formatDate(start.value)+" – "+formatDate(end.value);
+  const origin = editor.origin === "pdf-yellow" ? "PDF sarı alanından otomatik okundu" : "elle girildi / düzeltildi";
+  if (conflicts.length) {
+    editor.conflict = true; note.className = "leave-note warn";
+    note.textContent = text+" — "+origin+". Kontrol gerekli: bu aralıkta vardiya kodu okundu: "+conflicts.join(", ")+". Kodlar değiştirilmedi.";
+  } else {
+    note.className = "leave-note ok";
+    note.textContent = text+" — "+origin+"; PDF ile kontrol et.";
+  }
+}
+function refreshLeaveSummary() {
+  const entered = leaveEditors.filter(e=>e.person.leave).length;
+  const automatic = leaveEditors.filter(e=>e.person.leave?.source==="pdf-yellow").length;
+  const invalid = leaveEditors.filter(e=>e.invalid).length;
+  const conflicts = leaveEditors.filter(e=>e.conflict).length;
+  const multiple = leaveEditors.filter(e=>e.person.detectedLeaves?.length>1).length;
+  $("izinOzet").textContent = "İzin aralığı girilen kişi: "+entered+
+    " · Otomatik doldurulan: "+automatic+" · Elle girilen/düzeltilen: "+(entered-automatic)+
+    " · Eksik/geçersiz tarih aralığı: "+invalid+" · İzin içinde vardiya kodu okunan kişi: "+conflicts+
+    " · Birden fazla ayrı aralık bulunan kişi: "+multiple+". Henüz kaydedilmedi veya yayınlanmadı.";
+}
+$("donem").addEventListener("input",()=>{
+  if (!draft) return;
+  const bounds = monthBounds($("donem").value);
+  draft.reviewPeriod = bounds ? $("donem").value : null;
+  for (const editor of leaveEditors) {
+    for (const input of [editor.start,editor.end]) {
+      input.disabled = !bounds; input.min = bounds?.min || ""; input.max = bounds?.max || "";
+    }
+    validateLeave(editor);
+  }
+  refreshLeaveSummary();
+});
+function addLeaveEditor(row,person) {
+  const td = cell(row,""); td.className = "leave-box";
+  const startLabel = document.createElement("label"); startLabel.append("İzin başlangıcı");
+  const start = document.createElement("input"); start.type = "date";
+  start.setAttribute("aria-label",person.name+" için izin başlangıcı"); startLabel.append(start);
+  const endLabel = document.createElement("label"); endLabel.append("İzin bitişi");
+  const end = document.createElement("input"); end.type = "date";
+  end.setAttribute("aria-label",person.name+" için izin bitişi"); endLabel.append(end);
+  const clear = document.createElement("button"); clear.type = "button"; clear.textContent = "İzni temizle";
+  clear.setAttribute("aria-label",person.name+" için izin tarihlerini temizle");
+  const note = document.createElement("span"); note.setAttribute("aria-live","polite");
+  td.append(startLabel,endLabel,clear,note);
+  const bounds = monthBounds($("donem").value);
+  for (const input of [start,end]) {
+    input.disabled = !bounds; input.min = bounds?.min || ""; input.max = bounds?.max || "";
+  }
+  const detected = person.detectedLeave;
+  if (detected) { start.value = detected.start; end.value = detected.end; }
+  const editor = {person,start,end,note,invalid:false,conflict:false,origin:detected?"pdf-yellow":"manual"};
+  leaveEditors.push(editor);
+  const update = ()=>{editor.origin="manual"; validateLeave(editor); refreshLeaveSummary();};
+  start.addEventListener("input",update); end.addEventListener("input",update);
+  clear.addEventListener("click",()=>{start.value="";end.value="";update();});
+  validateLeave(editor);
+}
+function preview(result) {
+  clearPreview();
+  const month = result.month;
+  if (!Array.isArray(month?.people)) throw new Error("Parser yanıtı geçersiz.");
+  $("donem").value = month.key;
+  draft = {result,reviewPeriod:month.key,people:[]};
+  $("baslik").textContent = month.title+" — Kontrol taslağı";
+  $("ozet").textContent = result.pageCount+" sayfa incelendi; "+result.schedulePageCount+
+    " sayfada gün tablosu bulundu; "+month.people.length+" aday personel satırı okundu.";
+  for (const warning of result.warnings || []) {
+    const li = document.createElement("li"); li.textContent = warning; $("uyarilar").append(li);
+  }
+  const head = document.createElement("thead"), header = document.createElement("tr");
+  for (const label of ["PDF'deki kişi","Hesap eşleştirmesi (taslakta saklanabilir)","Kaynak sayfa","Okunan vardiyalar","İzin tarihleri (otomatik / düzeltilebilir)"])
+    cell(header,label,"th");
+  head.append(header);
+  const body = document.createElement("tbody");
+  for (const sourcePerson of month.people) {
+    const person = {...sourcePerson,userId:"",leave:null}; draft.people.push(person);
+    const row = document.createElement("tr"); cell(row,person.name);
+    const mapping = cell(row,""), select = document.createElement("select");
+    select.setAttribute("aria-label",person.name+" için hesap");
+    const empty = document.createElement("option"); empty.value="";
+    empty.textContent="Hesap seç — otomatik eşleştirilmedi"; select.append(empty);
+    for (const profile of profiles) {
+      const option = document.createElement("option"); option.value=profile.user_id;
+      option.textContent=profile.full_name+" · "+profile.personnel_code; select.append(option);
+    }
+    select.addEventListener("change",()=>{person.userId=select.value;}); mapping.append(select);
+    cell(row,String(person.sourcePage));
+    const values = Object.entries(person.s || {}).sort((a,b)=>Number(a[0])-Number(b[0])).map(([day,code])=>
+      day+". gün: "+code+" ("+(month.shifts?.[code]?.t || "SAAT OKUNAMADI")+")");
+    cell(row,values.length?values.join(" | "):"Vardiya okunamadı").className="shift-cell";
+    addLeaveEditor(row,person); body.append(row);
+  }
+  $("tablo").append(head,body); refreshLeaveSummary(); $("onizleme").hidden=false;
+}
+$("pdf").onchange = async event => {
+  const file = event.target.files[0]; if (!file || busy) return;
+  if (!token || Date.now()>=expiresAt) {status("Önce yeniden yönetici girişi yap.");return;}
+  if (file.size>20*1024*1024) {status("Bu önizleme için en fazla 20 MB PDF seç.");$("pdf").value="";return;}
+  busy=true; $("pdf").disabled=true; const job=generation;
+  clearPreview(); status("PDF okuyucusu yükleniyor…");
+  try {
+    if (!libraries) {
+      libraries=Promise.all([
+        import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs"),
+        import("./parser.js?v=auto-izin-2")
+      ]).catch(error=>{libraries=null;throw error;});
+    }
+    const [pdfjs,parser]=await libraries;
+    pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs";
+    if (job!==generation || !token) return;
+    status("PDF, vardiyalar ve sarı izin alanları okunuyor…");
+    const data=new Uint8Array(await file.arrayBuffer());
+    const result=await parser.parsePdf(pdfjs,data);
+    if (job!==generation || !token) return;
+    if (Date.now()>=expiresAt) throw new Error("Oturum süresi doldu. Çıkış yapıp tekrar giriş yap.");
+    preview(result);
+    status("✓ PDF önizlemesi hazır.\nAy/yıl ve okunabilen tek sarı izin aralıkları otomatik dolduruldu.\nİzinleri ve vardiyaları orijinal PDF ile kontrol et.\nHenüz hiçbir çizelge kaydedilmedi veya yayınlanmadı.");
+  } catch (error) {
+    if (job===generation) {clearPreview();status("PDF önizlemesi tamamlanamadı:\n"+error.message+"\nDosyaları ve PDF biçimini kontrol et.");}
+  } finally {$("pdf").value="";$("pdf").disabled=false;busy=false;}
+};
+  // TASLAK KAYIT EKLENTİSİ — sürüm 1
+// Bu blok mevcut <script type="module"> bölümünün içinde kalmalıdır.
+
+const draftTools = document.createElement("section");
+const draftHeading = document.createElement("h2");
+draftHeading.textContent = "Kaydedilmiş taslaklar";
+
+const draftHelp = document.createElement("p");
+draftHelp.className = "muted";
+draftHelp.textContent =
+  "Her kaydetme yeni bir taslak oluşturur. " +
+  "Yayınlanmış çizelgeler değiştirilmez. " +
+  "Liste son 50 taslağı gösterir.";
+
+const draftRefresh = document.createElement("button");
+draftRefresh.type = "button";
+draftRefresh.textContent = "Taslak listesini yenile";
+
+const draftSelect = document.createElement("select");
+draftSelect.setAttribute("aria-label", "Kaydedilmiş taslak seç");
+draftSelect.style.display = "block";
+draftSelect.style.width = "100%";
+draftSelect.style.margin = "12px 0";
+
+const draftOpen = document.createElement("button");
+draftOpen.type = "button";
+draftOpen.textContent = "Seçilen taslağı aç";
+
+const draftMessage = document.createElement("p");
+draftMessage.setAttribute("role", "status");
+draftMessage.style.whiteSpace = "pre-wrap";
+
+draftTools.append(
+  draftHeading,
+  draftHelp,
+  draftRefresh,
+  draftSelect,
+  draftOpen,
+  draftMessage
+);
+
+$("panel").append(draftTools);
+
+const draftSave = document.createElement("button");
+draftSave.type = "button";
+draftSave.textContent = "Taslak kaydet — yayınlamaz";
+draftSave.style.margin = "12px 0";
+
+const draftSaveHelp = document.createElement("p");
+draftSaveHelp.className = "muted";
+draftSaveHelp.textContent =
+  "Hesap eşleştirmeleri ve izin tarihleri bu düğmeyle saklanır. " +
+  "Eksik hesap eşleştirmesiyle taslak kaydedilebilir; " +
+  "bu işlem yayınlama onayı değildir.";
+
+$("onizleme").append(draftSave, draftSaveHelp);
+
+const mainNotice = document.querySelector("main > p.muted");
+
+if (mainNotice) {
+  mainNotice.textContent =
+    "Sürüm: yerleske-badi-yayin-2. Taslak kaydı ve ortak yayın ayrı işlemlerdir.";
+}
+
+const previewNotice = document.querySelector(
+  "#onizleme > p.muted"
+);
+
+if (previewNotice) {
+  previewNotice.textContent =
+    "Ekrandaki değişiklikler kendiliğinden kaydedilmez. " +
+    "Kalıcı kayıt için Taslak kaydet düğmesini kullan. " +
+    "Kaydedilmiş taslağı daha sonra PDF seçmeden açabilirsin. " +
+    "İsimler otomatik hesap eşleştirmesi yapmaz; " +
+    "izinleri ve vardiyaları orijinal PDF ile kontrol et. " +
+    "Bu sürüm kişi başına tek izin aralığı destekler.";
+}
+
+const previousLeaveSummary = refreshLeaveSummary;
+
+refreshLeaveSummary = function () {
+  previousLeaveSummary();
+
+  $("izinOzet").textContent =
+    $("izinOzet").textContent.replace(
+      "Henüz kaydedilmedi veya yayınlanmadı.",
+      "Ekrandaki değişiklikler için Taslak kaydet düğmesini kullan. " +
+      "Ortak yayın için ayrı yayınlama düğmesi kullanılır."
+    );
+};
+
+function resetDraftList() {
+  draftSelect.replaceChildren();
+
+  const option = document.createElement("option");
+  option.value = "";
+  option.textContent = "Önce taslak listesini yenile";
+  draftSelect.append(option);
+
+  draftMessage.textContent = "";
+}
+
+resetDraftList();
+
+function draftSessionCheck() {
+  if (!token || Date.now() >= expiresAt) {
+    throw new Error(
+      "Oturum süresi doldu. Çıkış yapıp tekrar giriş yap."
+    );
+  }
+}
+
+function draftButtons(disabled) {
+  draftSave.disabled = disabled;
+  draftRefresh.disabled = disabled;
+  draftOpen.disabled = disabled;
+  draftSelect.disabled = disabled;
+}
+
+async function fetchDraftList(job) {
+  const rows = await readTable(
+    "schedule_drafts" +
+    "?select=id,month_key,title,created_at" +
+    "&order=created_at.desc,id.desc" +
+    "&limit=50"
+  );
+
+  if (job !== generation || !token) return;
+
+  if (!Array.isArray(rows)) {
+    throw new Error("Taslak listesi yanıtı geçersiz.");
+  }
+
+  draftSelect.replaceChildren();
+
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = rows.length
+    ? "Açmak istediğin taslağı seç"
+    : "Henüz kaydedilmiş taslak yok";
+
+  draftSelect.append(empty);
+
+  for (const row of rows) {
+    const option = document.createElement("option");
+    option.value = row.id;
+
+    const created = new Date(row.created_at);
+    const dateText = Number.isNaN(created.getTime())
+      ? row.created_at
+      : created.toLocaleString("tr-TR");
+
+    option.textContent =
+      row.title + " · " + dateText +
+      " · " + row.id.slice(0, 8);
+
+    draftSelect.append(option);
+  }
+
+  draftMessage.textContent =
+    rows.length + " taslak listelendi.";
+}
+
+draftRefresh.onclick = async () => {
+  if (busy) return;
+
+  const job = generation;
+
+  try {
+    draftSessionCheck();
+    busy = true;
+    draftButtons(true);
+
+    draftMessage.textContent = "Taslaklar okunuyor…";
+    await fetchDraftList(job);
+  } catch (error) {
+    if (job === generation) {
+      draftMessage.textContent = error.message;
+    }
+  } finally {
+    busy = false;
+    draftButtons(false);
+  }
+};
+
+function createDraftSnapshot() {
+  if (!draft || $("onizleme").hidden) {
+    throw new Error("Önce PDF seç veya kaydedilmiş bir taslak aç.");
+  }
+
+  const period = $("donem").value;
+
+  if (!monthBounds(period)) {
+    throw new Error("Geçerli bir çizelge ayı seç.");
+  }
+
+  if (period !== draft.result.month.key) {
+    throw new Error(
+      "Seçilen ay, PDF'den okunan ayla farklı. " +
+      "Bu sürümde kaydetmeden önce çizelge ayını PDF'nin ayına döndür."
+    );
+  }
+
+  if (
+    leaveEditors.length !== draft.people.length ||
+    !draft.people.length
+  ) {
+    throw new Error("Taslak satırları eksik; PDF'yi yeniden aç.");
+  }
+
+  for (const editor of leaveEditors) {
+    validateLeave(editor);
+  }
+
+  refreshLeaveSummary();
+
+  const invalid = leaveEditors.find(editor => editor.invalid);
+
+  if (invalid) {
+    throw new Error(
+      invalid.person.name +
+      ": eksik veya geçersiz izin tarihini düzelt."
+    );
+  }
+
+  const chosen = new Set();
+
+  for (const person of draft.people) {
+    if (!person.userId) continue;
+
+    if (!profiles.some(profile => profile.user_id === person.userId)) {
+      throw new Error(
+        person.name +
+        ": seçilen hesap aktif profil listesinde yok. " +
+        "Eşleştirmeyi düzelt veya boş bırak."
+      );
+    }
+
+    if (chosen.has(person.userId)) {
+      throw new Error(
+        "Aynı hesap birden fazla kişiye seçilmiş. " +
+        "Hesap eşleştirmelerini kontrol et."
+      );
+    }
+
+    chosen.add(person.userId);
+  }
+
+  return JSON.parse(JSON.stringify({
+    schemaVersion: 1,
+    period,
+    result: draft.result,
+    rows: draft.people.map((person, index) => ({
+      userId: person.userId || "",
+      start: leaveEditors[index].start.value,
+      end: leaveEditors[index].end.value,
+      origin: leaveEditors[index].origin || "manual"
+    }))
+  }));
+}
+
+draftSave.onclick = async () => {
+  if (busy) return;
+
+  const job = generation;
+  let writeStarted = false;
+  let saved = false;
+
+  try {
+    draftSessionCheck();
+
+    const snapshot = createDraftSnapshot();
+
+    const mapped = snapshot.rows.filter(row => row.userId).length;
+
+    const approved = window.confirm(
+      snapshot.result.month.title + " için yeni taslak kaydedilsin mi?\n\n" +
+      snapshot.rows.length + " kişi satırı\n" +
+      mapped + " hesap eşleştirmesi\n\n" +
+      "İsimler, vardiyalar, izin tarihleri ve eşleştirmeler " +
+      "Supabase taslak tablosuna gönderilecek.\n" +
+      "Bu işlem yayınlama yapmaz."
+    );
+
+    if (!approved) return;
+
+    draftSessionCheck();
+
+    busy = true;
+    draftButtons(true);
+
+    const requestToken = token;
+
+    draftMessage.textContent = "Taslak kaydediliyor…";
+    writeStarted = true;
+
+    const response = await fetch(
+      URL + "/rest/v1/schedule_drafts",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + requestToken,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({
+          month_key: snapshot.period,
+          title: snapshot.result.month.title,
+          data: snapshot
+        })
+      }
+    );
+
+    if (job !== generation || !token) return;
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+
+      throw new Error(
+        "Kayıt isteği başarısız. HTTP " + response.status +
+        (detail?.message ? "\n" + detail.message : "")
+      );
+    }
+
+    saved = true;
+
+    const rows = await response.json().catch(() => null);
+    const savedId = Array.isArray(rows) ? rows[0]?.id : null;
+
+    const successText =
+      "✓ Taslak kaydedildi. Yayınlanmadı." +
+      (savedId ? "\nTaslak kimliği: " + savedId : "");
+
+    status(successText);
+    draftMessage.textContent = successText;
+
+    try {
+      await fetchDraftList(job);
+
+      if (job !== generation || !token) return;
+
+      if (savedId) draftSelect.value = savedId;
+      draftMessage.textContent = successText;
+    } catch (error) {
+      if (job === generation) {
+        draftMessage.textContent =
+          successText +
+          "\nListe yenilenemedi: " + error.message +
+          "\nTekrar kaydetmek yerine listeyi yenile.";
+      }
+    }
+  } catch (error) {
+    if (job === generation) {
+      const prefix = saved
+        ? "Taslak kaydı tamamlandı ancak sonraki işlemde sorun oldu.\n"
+        : writeStarted
+          ? "Kayıt sonucu doğrulanamadı. Tekrar kaydetmeden önce " +
+            "taslak listesini yenileyip kontrol et.\n"
+          : "";
+
+      draftMessage.textContent = prefix + error.message;
+    }
+  } finally {
+    busy = false;
+    draftButtons(false);
+  }
+};
+
+function restoreDraft(snapshot) {
+  if (
+    snapshot?.schemaVersion !== 1 ||
+    !Array.isArray(snapshot.result?.month?.people) ||
+    !Array.isArray(snapshot.rows) ||
+    snapshot.rows.length !== snapshot.result.month.people.length ||
+    snapshot.period !== snapshot.result.month.key ||
+    !monthBounds(snapshot.period)
+  ) {
+    throw new Error("Bu taslağın biçimi desteklenmiyor veya verisi eksik.");
+  }
+
+  for (const row of snapshot.rows) {
+    if (
+      typeof row.userId !== "string" ||
+      typeof row.start !== "string" ||
+      typeof row.end !== "string" ||
+      !["manual", "pdf-yellow"].includes(row.origin)
+    ) {
+      throw new Error("Taslak satır bilgisi geçersiz.");
+    }
+  }
+
+  preview(snapshot.result);
+
+  $("donem").value = snapshot.period;
+  $("donem").dispatchEvent(new Event("input"));
+
+  const tableRows = $("tablo").querySelectorAll("tbody tr");
+
+  snapshot.rows.forEach((savedRow, index) => {
+    const person = draft.people[index];
+    const editor = leaveEditors[index];
+    const select = tableRows[index].querySelector("select");
+
+    if (
+      savedRow.userId &&
+      !profiles.some(profile => profile.user_id === savedRow.userId)
+    ) {
+      const missing = document.createElement("option");
+      missing.value = savedRow.userId;
+      missing.textContent =
+        "Önceki hesap aktif listede yok — eşleştirmeyi kontrol et";
+      select.append(missing);
+    }
+
+    select.value = savedRow.userId;
+    person.userId = savedRow.userId;
+
+    editor.start.value = savedRow.start;
+    editor.end.value = savedRow.end;
+    editor.origin = savedRow.origin;
+
+    validateLeave(editor);
+  });
+
+  refreshLeaveSummary();
+}
+
+draftOpen.onclick = async () => {
+  if (busy) return;
+
+  const id = draftSelect.value;
+  const job = generation;
+
+  try {
+    draftSessionCheck();
+
+    if (!id) {
+      throw new Error("Önce listeden bir taslak seç.");
+    }
+
+    if (
+      draft &&
+      !window.confirm(
+        "Seçilen taslak açılsın mı?\n" +
+        "Ekrandaki kaydedilmemiş değişiklikler kaldırılacak."
+      )
+    ) {
+      return;
+    }
+
+    busy = true;
+    draftButtons(true);
+    draftMessage.textContent = "Taslak açılıyor…";
+
+    const rows = await readTable(
+      "schedule_drafts?select=id,month_key,title,data,created_at" +
+      "&id=eq." + encodeURIComponent(id) +
+      "&limit=1"
+    );
+
+    if (job !== generation || !token) return;
+
+    if (!Array.isArray(rows) || rows.length !== 1) {
+      throw new Error("Taslak bulunamadı veya bu kayda erişilemiyor.");
+    }
+
+    if (rows[0].month_key !== rows[0].data?.period) {
+      throw new Error("Taslağın ay bilgileri birbiriyle uyuşmuyor.");
+    }
+
+    restoreDraft(rows[0].data);
+
+    draftMessage.textContent =
+      "✓ Taslak açıldı. PDF'yi yeniden seçmen gerekmedi.\n" +
+      "Yeni değişiklikleri saklamak için yeniden Taslak kaydet'e bas.";
+
+    status(
+      "✓ Kaydedilmiş taslak açıldı.\n" +
+      "Bu işlem yayınlama yapmadı."
+    );
+  } catch (error) {
+    if (job === generation) {
+      draftMessage.textContent = error.message;
+    }
+  } finally {
+    busy = false;
+    draftButtons(false);
+  }
+};
+
+new MutationObserver(() => {
+  if ($("panel").hidden) resetDraftList();
+}).observe($("panel"), {
+  attributes: true,
+  attributeFilter: ["hidden"]
+});
+
+// TASLAK KAYIT EKLENTİSİ SONU
+// YAYIN KAPSAMI VE ÖN KONTROL — sürüm 1
+
+let scopeEditors = [];
+
+const publicationReviewBox = document.createElement("section");
+
+const publicationReviewTitle = document.createElement("h2");
+publicationReviewTitle.textContent = "Yayın öncesi kontrol";
+
+const publicationReviewHelp = document.createElement("p");
+publicationReviewHelp.className = "muted";
+publicationReviewHelp.textContent =
+  "Her satır için kapsam seç. Kapsam dışı satırlar taslakta kalır. " +
+  "Seçim tek başına yayını değiştirmez; ortak yayın yapıldığında kapsam dışı kişiler o ayın ortak listesinden çıkar. " +
+  "Aşağıdaki kontrol düğmesi yayınlama yapmaz.";
+
+const sourceReviewLabel = document.createElement("label");
+sourceReviewLabel.style.display = "block";
+sourceReviewLabel.style.lineHeight = "1.6";
+
+const sourceReviewCheck = document.createElement("input");
+sourceReviewCheck.type = "checkbox";
+sourceReviewCheck.style.marginRight = "10px";
+
+sourceReviewLabel.append(
+  sourceReviewCheck,
+  document.createTextNode(
+    "Orijinal PDF'yi kontrol ettim: kişi–hesap eşleştirmelerini, " +
+    "vardiya kodlarını ve saatlerini, izin tarihlerini ve " +
+    "atlanan sayfaların çizelge içerip içermediğini inceledim."
+  )
+);
+
+const publicationCheckButton = document.createElement("button");
+publicationCheckButton.type = "button";
+publicationCheckButton.textContent =
+  "Yayın öncesi kontrol et — yayınlamaz";
+publicationCheckButton.style.margin = "16px 0";
+
+const publicationCheckResult = document.createElement("div");
+publicationCheckResult.setAttribute("role", "status");
+publicationCheckResult.style.whiteSpace = "pre-wrap";
+publicationCheckResult.style.lineHeight = "1.6";
+
+publicationReviewBox.append(
+  publicationReviewTitle,
+  publicationReviewHelp,
+  sourceReviewLabel,
+  document.createElement("br"),
+  publicationCheckButton,
+  publicationCheckResult
+);
+
+$("onizleme").append(publicationReviewBox);
+
+function clearPublicationCheck() {
+  publicationCheckResult.textContent = "";
+}
+
+function buildScopeEditors() {
+  scopeEditors = [];
+  sourceReviewCheck.checked = false;
+  clearPublicationCheck();
+
+  const header = $("tablo").querySelector("thead tr");
+  const rows = $("tablo").querySelectorAll("tbody tr");
+
+  if (!header || !draft) return;
+
+  cell(header, "Yayın kapsamı", "th");
+
+  rows.forEach((row, index) => {
+    const person = draft.people[index];
+    const td = cell(row, "");
+    td.style.minWidth = "240px";
+
+    const select = document.createElement("select");
+    select.style.width = "100%";
+    select.setAttribute(
+      "aria-label",
+      person.name + " için yayın kapsamı"
+    );
+
+    const options = [
+      ["", "Kapsam seç — henüz onaylanmadı"],
+      ["included", "Yayına dahil et"],
+      ["excluded", "Bu çizelgede kapsam dışı"]
+    ];
+
+    for (const [value, text] of options) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.append(option);
+    }
+
+    const reason = document.createElement("input");
+    reason.type = "text";
+    reason.maxLength = 300;
+    reason.placeholder = "Kapsam dışı bırakma nedeni";
+    reason.setAttribute(
+      "aria-label",
+      person.name + " için kapsam dışı bırakma nedeni"
+    );
+    reason.style.display = "none";
+    reason.style.width = "100%";
+    reason.style.marginTop = "10px";
+
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.style.marginBottom = "0";
+
+    const editor = {
+      person,
+      select,
+      reason,
+      note
+    };
+
+    function updateScope() {
+      const excluded = select.value === "excluded";
+
+      reason.style.display = excluded ? "block" : "none";
+
+      note.textContent =
+        select.value === "included"
+          ? "Yayın öncesi kontrolde hesap ve çizelge bilgileri denetlenecek."
+          : excluded
+            ? "Taslakta kalır; yeni yayın listesine alınmaz. " +
+              "Ortak yayın yapılırsa o ayın ortak listesinden çıkar."
+            : "Bu satır için henüz karar verilmedi.";
+
+      clearPublicationCheck();
+    }
+
+    editor.update = updateScope;
+
+    select.addEventListener("change", updateScope);
+    reason.addEventListener("input", clearPublicationCheck);
+
+    td.append(select, reason, note);
+    scopeEditors.push(editor);
+
+    updateScope();
+  });
+}
+
+const previewBeforeScope = preview;
+
+preview = function (result) {
+  previewBeforeScope(result);
+  buildScopeEditors();
+};
+
+const snapshotBeforeScope = createDraftSnapshot;
+
+createDraftSnapshot = function () {
+  const snapshot = snapshotBeforeScope();
+
+  if (scopeEditors.length !== snapshot.rows.length) {
+    throw new Error(
+      "Kapsam seçimleri eksik. Taslağı veya PDF'yi yeniden aç."
+    );
+  }
+
+  snapshot.rows = snapshot.rows.map((row, index) => ({
+    ...row,
+    scope: scopeEditors[index].select.value,
+    scopeReason: scopeEditors[index].reason.value.trim()
+  }));
+
+  snapshot.publicationReview = {
+    sourceChecked: sourceReviewCheck.checked
+  };
+
+  return snapshot;
+};
+
+const restoreBeforeScope = restoreDraft;
+
+restoreDraft = function (snapshot) {
+  restoreBeforeScope(snapshot);
+
+  snapshot.rows.forEach((row, index) => {
+    const editor = scopeEditors[index];
+
+    editor.select.value =
+      ["included", "excluded"].includes(row.scope)
+        ? row.scope
+        : "";
+
+    editor.reason.value =
+      typeof row.scopeReason === "string"
+        ? row.scopeReason.slice(0, 300)
+        : "";
+
+    editor.update();
+  });
+
+  sourceReviewCheck.checked =
+    snapshot.publicationReview?.sourceChecked === true;
+
+  clearPublicationCheck();
+};
+
+sourceReviewCheck.addEventListener(
+  "change",
+  clearPublicationCheck
+);
+
+$("tablo").addEventListener(
+  "input",
+  clearPublicationCheck
+);
+
+$("tablo").addEventListener(
+  "change",
+  clearPublicationCheck
+);
+
+$("donem").addEventListener(
+  "input",
+  clearPublicationCheck
+);
+
+publicationCheckButton.onclick = () => {
+  if(busy) return;
+  try {
+    const review=buildSharedMonth();
+    publicationCheckResult.className='ok';
+    publicationCheckResult.textContent='✓ Yayın öncesi kontroller geçti.\nDahil: '+review.month.people.length+' kişi\nKapsam dışı: '+review.excluded.length+' kişi\nÖnceki yayından çıkacaklar: '+(review.removed.join(', ') || 'Yok')+'\nHiçbir kayıt yayınlanmadı. Seçimleri saklamak için Taslak kaydet kullan.';
+  } catch(error) {
+    publicationCheckResult.className='warn';
+    publicationCheckResult.textContent=error.message+'\nHiçbir kayıt yayınlanmadı.';
+  }
+};
+
+// YAYIN KAPSAMI VE ÖN KONTROL SONU
+// TEK PERSONELLİ TEST KOPYASI — sürüm 1
+
+const singleTestSection = document.createElement("section");
+
+const singleTestTitle = document.createElement("h2");
+singleTestTitle.textContent = "Tek personellik test";
+
+const singleTestHelp = document.createElement("p");
+singleTestHelp.className = "muted";
+singleTestHelp.textContent =
+  "Seçtiğin yalnızca bir satırın vardiya ve izin bilgileri " +
+  "TEST-4D769C60 hesabı için ayrı test tablosuna kopyalanır. " +
+  "Taslak kapsamı ve gerçek yayınlar değiştirilmez.";
+
+const singleTestSelect = document.createElement("select");
+singleTestSelect.setAttribute(
+  "aria-label",
+  "Test kopyası oluşturulacak kişi"
+);
+singleTestSelect.style.display = "block";
+singleTestSelect.style.width = "100%";
+singleTestSelect.style.margin = "12px 0";
+
+const singleTestButton = document.createElement("button");
+singleTestButton.type = "button";
+singleTestButton.textContent =
+  "Seçilen kişinin test kopyasını oluştur";
+
+const singleTestMessage = document.createElement("p");
+singleTestMessage.setAttribute("role", "status");
+singleTestMessage.style.whiteSpace = "pre-wrap";
+
+singleTestSection.append(
+  singleTestTitle,
+  singleTestHelp,
+  singleTestSelect,
+  singleTestButton,
+  singleTestMessage
+);
+
+$("onizleme").append(singleTestSection);
+
+function populateSingleTestPeople() {
+  singleTestSelect.replaceChildren();
+  singleTestMessage.textContent = "";
+
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = "Test için yalnızca bir kişi seç";
+  singleTestSelect.append(empty);
+
+  if (!draft) return;
+
+  draft.people.forEach((person, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = person.name;
+    singleTestSelect.append(option);
+  });
+}
+
+const previewBeforeSingleTest = preview;
+
+preview = function (result) {
+  previewBeforeSingleTest(result);
+  populateSingleTestPeople();
+};
+
+singleTestButton.onclick = async () => {
+  if (busy) return;
+
+  const job = generation;
+  let requestStarted = false;
+
+  try {
+    draftSessionCheck();
+
+    if (!draft || singleTestSelect.value === "") {
+      throw new Error("Önce test kopyası için bir kişi seç.");
+    }
+
+    if ($("donem").value !== draft.result.month.key) {
+      throw new Error("Çizelge ayı PDF'den okunan ayla uyuşmuyor.");
+    }
+
+    const index = Number(singleTestSelect.value);
+    const person = draft.people[index];
+    const editor = leaveEditors[index];
+
+    if (!person || !editor) {
+      throw new Error("Seçilen satır bulunamadı. Taslağı yeniden aç.");
+    }
+
+    validateLeave(editor);
+    refreshLeaveSummary();
+
+    if (editor.invalid) {
+      throw new Error("Seçilen kişinin izin tarihlerini düzelt.");
+    }
+
+    if (editor.conflict) {
+      throw new Error(
+        "Seçilen kişinin izin aralığında vardiya kodu var; önce kontrol et."
+      );
+    }
+
+    if (person.detectedLeaves?.length > 1) {
+      throw new Error(
+        "Bu test editörü birden fazla ayrı izin aralığını desteklemiyor."
+      );
+    }
+
+    const codes = [...new Set(Object.values(person.s || {}))];
+
+    if (!codes.length && !person.leave) {
+      throw new Error("Seçilen satırda vardiya veya izin bilgisi yok.");
+    }
+
+    const testShifts = {};
+
+    for (const code of codes) {
+      const shift = draft.result.month.shifts?.[code];
+
+      if (!shift?.t) {
+        throw new Error(code + " kodunun saati okunamadı.");
+      }
+
+      testShifts[code] = { ...shift };
+    }
+
+    const targets = profiles.filter(profile =>
+      profile.personnel_code === "TEST-4D769C60" &&
+      profile.active === true
+    );
+
+    if (targets.length !== 1) {
+      throw new Error(
+        "Aktif TEST-4D769C60 profili tek bir kayıt olarak bulunamadı."
+      );
+    }
+
+    const target = targets[0];
+
+    const payload = JSON.parse(JSON.stringify({
+      schemaVersion: 1,
+      testOnly: true,
+      month: {
+        key: draft.result.month.key,
+        y: draft.result.month.y,
+        m: draft.result.month.m,
+        title: draft.result.month.title,
+        shifts: testShifts
+      },
+      person: {
+        name: person.name,
+        s: person.s || {},
+        leave: person.leave || null
+      }
+    }));
+
+    const approved = window.confirm(
+      "Yalnızca test kopyası oluşturulsun mu?\n\n" +
+      "Kaynak kişi: " + person.name + "\n" +
+      "Ay: " + payload.month.title + "\n" +
+      "Hedef: " + target.full_name + " / TEST-4D769C60\n\n" +
+      "Bu kişinin adı, vardiyaları ve izin tarihleri test hesabına " +
+      "gösterilecek. Test erişimi en fazla 24 saat sürecek.\n" +
+      "Gerçek yayınlar ve taslak kapsamı değiştirilmeyecek."
+    );
+
+    if (!approved) return;
+
+    draftSessionCheck();
+    busy = true;
+    singleTestButton.disabled = true;
+    singleTestMessage.textContent = "Test kopyası oluşturuluyor…";
+
+    requestStarted = true;
+
+    const response = await fetch(
+      URL + "/rest/v1/staff_schedule_tests",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({
+          target_user_id: target.user_id,
+          month_key: payload.month.key,
+          title: payload.month.title + " — TEST",
+          data: payload
+        })
+      }
+    );
+
+    if (job !== generation || !token) return;
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+
+      throw new Error(
+        "Test kaydı isteği başarısız. HTTP " + response.status +
+        (detail?.message ? "\n" + detail.message : "")
+      );
+    }
+
+    const rows = await response.json().catch(() => null);
+    const id = Array.isArray(rows) ? rows[0]?.id : null;
+
+    singleTestMessage.textContent =
+      "✓ Test kopyası oluşturuldu.\n" +
+      "Kaynak kişi: " + person.name + "\n" +
+      "Hedef: Test Personeli / TEST-4D769C60\n" +
+      (id ? "Test kimliği: " + id + "\n" : "") +
+      "Gerçek yayınlar ve taslak kapsamı değiştirilmedi.";
+  } catch (error) {
+    if (job === generation) {
+      singleTestMessage.textContent =
+        (requestStarted
+          ? "Kayıt sonucu doğrulanamadı. Yeniden oluşturmadan önce " +
+            "personel test ekranında kontrol et.\n"
+          : "") +
+        error.message;
+    }
+  } finally {
+    busy = false;
+    singleTestButton.disabled = false;
+  }
+};
+
+new MutationObserver(() => {
+  if ($("panel").hidden) {
+    singleTestSelect.replaceChildren();
+    singleTestMessage.textContent = "";
+  }
+}).observe($("panel"), {
+  attributes: true,
+  attributeFilter: ["hidden"]
+});
+
+// TEK PERSONELLİ TEST KOPYASI SONU
+
+
+// Yerleşke, kalıcı kişi anahtarı, PDF sırası ve badi editörleri.
+const allowedSites = ['Sıhhiye Merkez','Sincan Matbaa','Kızılay','Yeni Yerleşke'];
+let rosterEditors = [], metadataMonth = null, publishedMetadata = new Map();
+const metadataTools = document.createElement('section');
+const metadataTitle = document.createElement('h2');
+metadataTitle.textContent = 'Yerleşke, sıra ve badi kontrolü';
+const metadataHelp = document.createElement('p');
+metadataHelp.textContent = 'Önce mevcut ay bilgilerini getir. Aynı kişi anahtarına ait yerleşke, sıra ve badi alanları doldurulur. Yeni kişiler veya yeni ay için boş alanları kontrol ederek tamamla. Getirme işlemi yayını değiştirmez; bu alanlardaki kaydedilmemiş seçimleri mevcut yayın değerleriyle değiştirebilir. Yeni Yerleşke personelinin burada tutulmayan nöbetlerini boş bırak; boş günler izin veya boşta demek değildir.';
+const metadataLoad = document.createElement('button');
+metadataLoad.type = 'button';
+metadataLoad.textContent = 'Mevcut ayın yerleşke ve badi bilgilerini getir';
+const metadataMessage = document.createElement('p');
+metadataMessage.style.whiteSpace = 'pre-wrap';
+metadataMessage.setAttribute('role','status');
+metadataTools.append(metadataTitle, metadataHelp, metadataLoad, metadataMessage);
+$('onizleme').append(metadataTools);
+
+function refreshBuddyOptions() {
+  for (const editor of rosterEditors) {
+    const previous = editor.buddy.value;
+    editor.buddy.replaceChildren(new Option('Badi yok', ''));
+    for (const other of rosterEditors) {
+      if (other !== editor && other.key.value.trim()) {
+        editor.buddy.add(new Option(other.person.name, other.key.value.trim()));
+      }
+    }
+    if (previous && ![...editor.buddy.options].some(o=>o.value===previous)) {
+      editor.buddy.add(new Option('Listede bulunamayan bağlantı: ' + previous, previous));
+    }
+    editor.buddy.value = previous;
+  }
+}
+function addRosterEditors() {
+  rosterEditors = []; metadataMonth = null; publishedMetadata = new Map();
+  metadataMessage.textContent = 'Yayın öncesi mevcut ay bilgilerini getir.';
+  const head = $('tablo').querySelector('thead tr');
+  if (!head || !draft) return;
+  for (const text of ['Kalıcı kişi anahtarı','Yerleşke','PDF sırası','Badi']) cell(head,text,'th');
+  [...$('tablo').querySelectorAll('tbody tr')].forEach((row,index)=>{
+    const person = draft.people[index];
+    const key = document.createElement('input'); key.type='text';
+    key.value=String(person.id || person.name || '').trim();
+    key.setAttribute('aria-label',person.name+' kişi anahtarı');
+    key.title='Mevcut hesap bağlantısındaki anahtarı değiştirme. İsim benzerliğinden otomatik eşleştirme yapılmaz.';
+    const site = document.createElement('select');
+    site.add(new Option('Yerleşke seç',''));
+    for (const location of allowedSites) site.add(new Option(location,location));
+    site.setAttribute('aria-label',person.name+' yerleşkesi');
+    const order=document.createElement('input'); order.type='number'; order.min='1'; order.step='1'; order.value=String(index+1); order.style.width='100px';
+    order.setAttribute('aria-label',person.name+' PDF sırası');
+    const buddy=document.createElement('select'); buddy.setAttribute('aria-label',person.name+' badisi');
+    for(const input of [key,site,order,buddy]) {const td=cell(row,'');td.append(input);}
+    rosterEditors.push({person,key,site,order,buddy});
+    key.addEventListener('change',()=>{refreshBuddyOptions();clearPublicationCheck();});
+  });
+  refreshBuddyOptions();
+}
+const previewBeforeRoster = preview;
+preview = function(result) {previewBeforeRoster(result);addRosterEditors();};
+const snapshotBeforeRoster = createDraftSnapshot;
+createDraftSnapshot = function() {
+  const snapshot=snapshotBeforeRoster();
+  if(rosterEditors.length!==snapshot.rows.length) throw new Error('Yerleşke satırları eksik.');
+  snapshot.rows=snapshot.rows.map((row,index)=>{
+    const e=rosterEditors[index];
+    return {...row, roster:{id:e.key.value.trim(),location:e.site.value,display_order:e.order.value,buddy_key:e.buddy.value || null}};
+  });
+  return snapshot;
+};
+const restoreBeforeRoster = restoreDraft;
+restoreDraft = function(snapshot) {
+  restoreBeforeRoster(snapshot);
+  snapshot.rows.forEach((row,index)=>{
+    const e=rosterEditors[index], saved=row.roster;
+    if(!saved) return;
+    if(typeof saved.id==='string') e.key.value=saved.id;
+    if(allowedSites.includes(saved.location)) e.site.value=saved.location;
+    if(Number.isInteger(Number(saved.display_order)) && Number(saved.display_order)>0) e.order.value=String(saved.display_order);
+  });
+  refreshBuddyOptions();
+  snapshot.rows.forEach((row,index)=>{
+    const value=row.roster?.buddy_key;
+    if(typeof value==='string' && value) {
+      const e=rosterEditors[index];
+      if(![...e.buddy.options].some(o=>o.value===value)) e.buddy.add(new Option('Kontrol gerekli: '+value,value));
+      e.buddy.value=value;
+    }
+  });
+  metadataMessage.textContent='Taslak alanları açıldı. Yayınlamadan önce mevcut ay bilgilerini getir; mevcut yayına ait eşleşen alanlar yeniden doldurulur.';
+};
+metadataLoad.onclick = async()=>{
+  if(busy) return;
+  const job=generation, currentDraft=draft, period=$('donem').value;
+  try {
+    draftSessionCheck();
+    if(!draft || period!==draft.result.month.key) throw new Error('Önce doğru aya ait PDF veya taslak aç.');
+    if(!window.confirm('Mevcut ay bilgileri getirilsin mi?\nEşleşen satırların yerleşke, sıra ve badi seçimleri mevcut yayın değerleriyle doldurulur. Yayın değiştirilmez.')) return;
+    busy=true;metadataLoad.disabled=true;metadataMonth=null;
+    metadataMessage.textContent='Mevcut yayın bilgileri okunuyor…';
+    const rows=await readTable('published_roster_days?select=person_key,full_name,location,display_order,buddy_key&month_key=eq.'+encodeURIComponent(period)+'&day=eq.1&limit=1000');
+    if(job!==generation || currentDraft!==draft || period!==$('donem').value) return;
+    if(!Array.isArray(rows) || rows.length>=1000) throw new Error('Mevcut yayın listesi tam olarak doğrulanamadı.');
+    publishedMetadata=new Map();
+    for(const row of rows) {
+      if(publishedMetadata.has(row.person_key)) throw new Error('Mevcut yayında tekrarlı kişi anahtarı var.');
+      publishedMetadata.set(row.person_key,row);
+    }
+    for(const e of rosterEditors) {
+      const old=publishedMetadata.get(e.key.value.trim());
+      if(old) {e.site.value=old.location;e.order.value=String(old.display_order);}
+    }
+    refreshBuddyOptions();
+    for(const e of rosterEditors) {
+      const old=publishedMetadata.get(e.key.value.trim());
+      if(old) {
+        const buddy=old.buddy_key || '';
+        if(buddy && ![...e.buddy.options].some(o=>o.value===buddy)) e.buddy.add(new Option('Kontrol gerekli: '+buddy,buddy));
+        e.buddy.value=buddy;
+      }
+    }
+    metadataMonth=period;
+    metadataMessage.textContent='✓ '+rows.length+' mevcut kişi kaydı okundu.\nYeni veya boş alanları ve tüm badi bağlantılarını kontrol et. Bu işlem yayın yapmadı.';
+    clearPublicationCheck();
+  } catch(error) {
+    if(job===generation) metadataMessage.textContent=error.message;
+  } finally {busy=false;metadataLoad.disabled=false;}
+};
+
+// ORTAK ÇİZELGE YAYINI — mevcut taslak ve test işlemlerinden ayrıdır.
+const sharedSection = document.createElement('section');
+const sharedHeading = document.createElement('h2');
+sharedHeading.textContent = 'Ortak çizelgeyi yayınla';
+const sharedHelp = document.createElement('p');
+sharedHelp.textContent = 'Bu bölüm yalnızca ortak çizelgeyi yayınlar. Hesap eşleştirmesi zorunlu değildir. Yayına dahil edilenlerin adı, vardiyası ve izin günleri tüm aktif personele açılır. İzin açıklamaları ve hesap bilgileri aktarılmaz. Aynı ayın önceki ortak yayını bütünüyle değiştirilir: bu kez kapsam dışı bıraktıkların o ayın ortak listesinden çıkar. Kişisel yayınlar, taslaklar ve test kopyaları değişmez.';
+const sharedPublish = document.createElement('button');
+sharedPublish.type = 'button';
+sharedPublish.textContent = 'Ortak çizelgeyi yayınla — tüm aktif personel görür';
+const sharedMessage = document.createElement('p');
+sharedMessage.setAttribute('role', 'status');
+sharedMessage.style.whiteSpace = 'pre-wrap';
+sharedSection.append(sharedHeading, sharedHelp, sharedPublish, sharedMessage);
+$('onizleme').append(sharedSection);
+
+function buildSharedMonth() {
+  draftSessionCheck();
+  if(!draft || $('onizleme').hidden) throw new Error('Önce PDF veya kaydedilmiş taslak aç.');
+  const source=draft.result.month;
+  if(!monthBounds($('donem').value) || $('donem').value!==source.key) throw new Error('Seçilen ay PDF ayıyla uyuşmuyor.');
+  if(metadataMonth!==source.key) throw new Error('Önce mevcut ayın yerleşke ve badi bilgilerini getir.');
+  if(!sourceReviewCheck.checked) throw new Error('Önce orijinal PDF kontrolü kutusunu onayla.');
+  if([scopeEditors.length,leaveEditors.length,rosterEditors.length].some(n=>n!==draft.people.length)) throw new Error('Satır kontrolleri eksik. Taslağı yeniden aç.');
+  const people=[],excluded=[],ids=new Set(),accounts=new Set();
+  draft.people.forEach((person,index)=>{
+    const scope=scopeEditors[index],editor=leaveEditors[index],meta=rosterEditors[index];
+    if(!['included','excluded'].includes(scope.select.value)) throw new Error(person.name+': yayın kapsamı seçilmedi.');
+    if(scope.select.value==='excluded') {
+      if(!scope.reason.value.trim()) throw new Error(person.name+': kapsam dışı bırakma nedenini yaz.');
+      excluded.push(person.name);return;
+    }
+    validateLeave(editor);
+    if(editor.invalid || editor.conflict) throw new Error(person.name+': izin tarihlerini veya izin–nöbet çakışmasını düzelt.');
+    if(person.detectedLeaves?.length>1) throw new Error(person.name+': birden fazla ayrı izin aralığı var; bu sürüm tek aralık destekliyor.');
+    const id=meta.key.value.trim(), name=String(person.name || '').trim();
+    if(!id || !name || ids.has(id)) throw new Error('Eksik veya tekrarlanan kişi anahtarı: '+name);
+    ids.add(id);
+    const bound=profiles.filter(p=>p.roster_person_key===id);
+    if(bound.length>1) throw new Error(name+': aynı kişi anahtarına birden fazla hesap bağlı.');
+    if(person.userId) {
+      const profile=profiles.find(p=>p.user_id===person.userId);
+      if(!profile || profile.roster_person_key!==id) throw new Error(name+': seçilen hesap ile kalıcı kişi anahtarı uyuşmuyor.');
+      if(accounts.has(person.userId)) throw new Error(name+': hesap birden fazla satırda seçili.');
+      accounts.add(person.userId);
+    }
+    if(!allowedSites.includes(meta.site.value)) throw new Error(name+': yerleşke seçilmeli.');
+    const order=Number(meta.order.value);
+    if(!Number.isSafeInteger(order) || order<1 || order>2147483647) throw new Error(name+': PDF sırası pozitif tam sayı olmalı.');
+    const out={id,name,s:{...(person.s || {})},location:meta.site.value,display_order:order,buddy_key:meta.buddy.value || null};
+    if(person.leave) out.izin=[Number(person.leave.start.slice(8)),Number(person.leave.end.slice(8))];
+    people.push(out);
+  });
+  refreshLeaveSummary();
+  if(!people.length) throw new Error('Yayına dahil edilen kişi yok.');
+  const map=new Map(people.map(p=>[p.id,p]));
+  for(const person of people) {
+    if(!person.buddy_key) continue;
+    if(person.buddy_key===person.id) throw new Error(person.name+': kişi kendi badisi olamaz.');
+    const buddy=map.get(person.buddy_key);
+    if(!buddy || buddy.buddy_key!==person.id) throw new Error(person.name+': badi yayına dahil olmalı ve eşleşme karşılıklı olmalı.');
+  }
+  const shifts={};
+  const bounds=monthBounds(source.key),days=Number(bounds.max.slice(8));
+  for(const person of people) {
+    for(const [day,code] of Object.entries(person.s)) {
+      if(!/^([1-9]|[12][0-9]|3[01])$/.test(day) || Number(day)>days) throw new Error(person.name+': geçersiz gün.');
+      if(typeof code!=='string' || !/^V[0-9]+$/.test(code)) throw new Error(person.name+': geçersiz vardiya kodu.');
+      const src=source.shifts?.[code];
+      if(!src || src.s==null || src.e==null) throw new Error(code+': vardiya saatleri eksik.');
+      const a=Number(src.s), b=Number(src.e);
+      if(!Number.isFinite(a) || !Number.isFinite(b) || a<0 || a>=24 || b<=a || b>a+24) throw new Error(code+': vardiya saatleri geçersiz.');
+      shifts[code]={s:a,e:b};
+    }
+  }
+  const removed=[...publishedMetadata.values()].filter(old=>!map.has(old.person_key)).map(old=>old.full_name);
+  return {month:{key:source.key,people,shifts},title:source.title || source.key,excluded,removed};
+}
+sharedPublish.onclick = async () => {
+  if (busy) return;
+  const job = generation;
+  let started = false;
+  try {
+    const review = buildSharedMonth();
+    const names = review.month.people.map(p => '• ' + p.name + ' — ' + p.location + ' — sıra ' + p.display_order + (p.buddy_key ? ' — badi: ' + review.month.people.find(b=>b.id===p.buddy_key)?.name : '')).join('\n');
+    const approved = window.confirm(
+      review.title + ' ortak çizelgesi yayınlansın mı?\n\n' +
+      'TÜM AKTİF PERSONEL GÖREBİLECEK:\n' + names + '\n\n' +
+      'Kapsam dışı: ' + (review.excluded.join(', ') || 'Yok') + '\n' +
+      'Önceki yayından çıkacak kişiler: ' + (review.removed.join(', ') || 'Yok') + '\n' +
+      'Vardiya/izin verisi olmayanlar (boşta veya izinli demek değildir): ' + (review.month.people.filter(p=>!Object.keys(p.s).length && !p.izin).map(p=>p.name).join(', ') || 'Yok') + '\n\n' +
+      'İsimler, yerleşkeler, sıralama, badi bağlantıları, vardiyalar ve yalnızca İzin etiketi paylaşılır.\n' +
+      'AYNI AYIN ÖNCEKİ ORTAK YAYINI TAMAMEN DEĞİŞİR. Kapsam dışı kişiler ortak listeden çıkar.\n' +
+      'Boş günler izin sayılmaz. Taslaklar, kişisel yayınlar ve testler değişmez.'
+    );
+    if (!approved) return;
+    if (window.prompt('Onay için yayınlanacak ayı yaz: ' + review.month.key) !== review.month.key) return;
+    draftSessionCheck();
+    busy = true; sharedPublish.disabled = true; draftButtons(true);
+    sharedMessage.textContent = 'Ortak çizelge yayınlanıyor…';
+    started = true;
+    const response = await fetch(URL + '/rest/v1/rpc/publish_shared_roster', {
+      method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({p_month:review.month})
+    });
+    const body = await response.json().catch(() => null);
+    if (job !== generation || !token) return;
+    if (!response.ok) {
+      started = false;
+      throw new Error('Yayın başarısız. HTTP '+response.status+(body?.message ? '\n'+body.message : ''));
+    }
+    if (!Number.isInteger(body) || body < 1) throw new Error('Yayın yanıtı doğrulanamadı.');
+    sharedMessage.textContent = '✓ '+review.title+' ortak çizelgesi yayınlandı.\n'+review.month.people.length+' kişi; '+body+' günlük kayıt.\nAktif personel “Tüm personelin çizelgesi” görünümünden okuyabilir. Kişisel yayınlar değişmedi.';
+    status(sharedMessage.textContent);
+  } catch(error) {
+    if(job===generation) sharedMessage.textContent = (started ? 'İsteğin sonucu doğrulanamadı. Yeniden yayınlamadan önce personel ortak ekranından kontrol et.\n' : '') + error.message;
+  } finally {
+    busy = false; sharedPublish.disabled = false; draftButtons(false);
+  }
+};
+new MutationObserver(() => {
+  if ($('onizleme').hidden) sharedMessage.textContent = '';
+}).observe($('onizleme'), {attributes:true,attributeFilter:['hidden']});
+</script>
+ <script src="./yonetim-sade.js?v=1" defer></script>
+</body>
+</html>
