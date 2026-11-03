@@ -120,7 +120,7 @@ function dim(k){const [y,m]=k.split('-').map(Number);return new Date(y,m,0).getD
 function label(k){const [y,m]=k.split('-').map(Number);return MON[m-1]+' '+y}
 function time(t){return String(t||'').slice(0,5)}
 function hours(r){const [sh,sm]=time(r.shift_start).split(':').map(Number),[eh,em]=time(r.shift_end).split(':').map(Number);return ((eh*60+em-sh*60-sm+1440)%1440||1440)/60}
-function timeLabel(r){return time(r.shift_start)+'–'+time(r.shift_end)+(time(r.shift_end)<=time(r.shift_start)?' (ertesi gün)':'')}
+function timeLabel(r){return time(r.shift_start)+'–'+time(r.shift_end)}
 function icon(r){return time(r.shift_start)>='18:00'||time(r.shift_end)<=time(r.shift_start)?'☾':'☀'}
 function badge(r){return r?.is_leave?'<span class="badge b-izin">İzin</span>':r?.shift_code?`<span class="badge ${['V1','V2','V3'].includes(r.shift_code)?'b-'+r.shift_code:'b-generic'}">${icon(r)} ${esc(r.shift_code)}</span>`:''}
 function textStatus(r){return r?.is_leave?'İzin':r?.shift_code?r.shift_code+' · '+timeLabel(r):'Çizelgede nöbet veya izin belirtilmemiş'}
