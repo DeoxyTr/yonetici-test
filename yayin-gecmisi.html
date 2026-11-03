@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>TTK — Yayın geçmişi</title><style>
+*{box-sizing:border-box}body{margin:0;background:#101c30;color:#eef2f7;font:16px system-ui}main{max-width:1000px;margin:auto;padding:22px}h1{font-size:26px}h2{font-size:20px}p{line-height:1.6}input,button{font:inherit;padding:12px;border-radius:9px}input{background:#17263d;color:#fff;border:1px solid #64748b;max-width:100%}button{background:#51d3b0;color:#102334;border:0;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}[hidden]{display:none!important}.box{background:#17263d;border:1px solid #3a506d;border-radius:14px;padding:18px;margin:16px 0}.muted{color:#b4c4d7;font-size:14px}.status{white-space:pre-wrap;padding:14px;border-radius:10px;background:#17263d;line-height:1.6}.error{color:#ffb9b9}.ok{color:#7ce5c6}.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}form label{display:block;margin-top:16px}form input{display:block;width:100%;margin:7px 0 16px}.danger{background:#ffc090;color:#321b0e}.selected{border-color:#51d3b0}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:10px;border-bottom:1px solid #3a506d;vertical-align:top}.scroll{overflow:auto}small{display:block;color:#b4c4d7;margin:5px 0}.pill{display:inline-block;padding:4px 9px;background:#263d59;border-radius:20px;font-size:12px}.confirm{margin-top:16px;border:1px solid #c68d60;border-radius:12px;padding:16px}.confirm label{display:block;margin:12px 0}.version{font-size:12px;color:#b4c4d7;margin-top:22px}
+</style></head><body><main>
+<h1>Yayın geçmişi</h1><p class="muted">Ortak çizelgenin saklanan sürümleri. Bu sayfa kişisel yayınları ve taslakları değiştirmez.</p>
+<section id="login" class="box"><h2>Yönetici girişi</h2><form id="form"><label for="username">Kullanıcı adı veya e-posta</label><input id="username" autocomplete="username" autocapitalize="none" spellcheck="false" required><label for="password">Uygulama şifresi</label><input id="password" type="password" autocomplete="current-password" required><button id="enter">Giriş yap</button></form><p class="muted">Oturum yalnızca bu açık sayfanın belleğinde tutulur. Sayfayı yenilersen tekrar giriş gerekir.</p></section>
+<p id="message" class="status" role="status">Henüz giriş yapılmadı.</p>
+<section id="panel" hidden><div class="bar"><label>Çizelge ayı <input id="month" type="month"></label><button id="reload" type="button">Geçmişi getir</button><button id="logout" type="button">Çıkış</button></div><p class="muted">Listeleme ve önizleme yayın yapmaz. Geri dönüş ise seçilen ayın mevcut ortak çizelgesini değiştirir.</p><div id="list"></div><section id="detail" class="box" hidden></section></section>
+<p class="version">Sürüm: yayin-gecmisi-1</p>
+<script type="module">
+const BASE='https://rtqtildfytvyyrygcgyt.supabase.co',KEY='sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ';
+const $=id=>document.getElementById(id);
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const kinds={baseline:'Başlangıç kopyası',publish:'Ortak yayın',restore:'Geri dönüş yayını'};
+let token=null,expiry=0,job=0,busy=false,history=[],selected=null;
+const now=new Date();$('month').value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+function say(text,kind=''){const el=$('message');el.textContent=text;el.className='status '+kind}
+function lock(yes){busy=yes;for(const el of document.querySelectorAll('button,input'))el.disabled=yes;if(!yes)syncRestore()}
+function loginEmail(value){const v=value.trim().toLowerCase();if(v.includes('@'))return v;if(!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(v))throw new Error('Geçerli bir kullanıcı adı yaz.');return v+'@personel.example.com'}
+function id(value){const v=Number(value);if(!Number.isSafeInteger(v)||v<1)throw new Error('Kayıt kimliği doğrulanamadı.');return v}
+function date(value){const d=new Date(value);return Number.isNaN(d.getTime())?'Tarih okunamadı':d.toLocaleString('tr-TR')}
+function session(){if(!token||Date.now()>=expiry)throw new Error('Oturum süresi doldu. Çıkış yapıp yeniden giriş yap.')}
+async function request(path,options={}){session();const response=await fetch(BASE+'/rest/v1/'+path,{...options,headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json',...(options.headers||{})},cache:'no-store'});const body=await response.json().catch(()=>null);if(!response.ok)throw new Error('HTTP '+response.status+(body?.message?' — '+body.message:''));return body}
+function clear(){job++;token=null;expiry=0;history=[];selected=null;$('panel').hidden=true;$('login').hidden=false;$('list').replaceChildren();$('detail').hidden=true;$('detail').replaceChildren();$('password').value=''}
+function resetDetail(){selected=null;$('detail').hidden=true;$('detail').replaceChildren()}
+function renderList(){
+ const root=$('list');root.replaceChildren();
+ if(!history.length){root.innerHTML='<div class="box">Bu ay için kayıtlı yayın geçmişi yok.</div>';return}
+ for(const row of history){const article=document.createElement('article');article.className='box';article.innerHTML=`<h2>Sürüm ${esc(row.version_no)} ${row.id===history[0].id?'<span class="pill">En son geçmiş kaydı</span>':''}</h2><p>${esc(kinds[row.snapshot_kind]||row.snapshot_kind)} · ${esc(row.person_count)} kişi · ${esc(row.day_record_count)} günlük kayıt</p><small>${esc(date(row.created_at))}</small><small>${row.created_by?'Yönetici kimliği: '+esc(row.created_by):'Yönetici bilgisi kaydedilmemiş — başlangıç kopyası'}</small><p class="muted">${esc(row.note||'')}${row.restored_from_id?' · Kaynak geçmiş kimliği: '+esc(row.restored_from_id):''}</p>`;const b=document.createElement('button');b.type='button';b.textContent='Bu sürümü incele';b.onclick=()=>void preview(row.id);article.append(b);root.append(article)}
+}
+async function load(keepMessage=false){
+ session();const current=job,k=$('month').value;
+ if(!/^[1-9][0-9]{3}-(0[1-9]|1[0-2])$/.test(k))throw new Error('Geçerli bir ay seç.');
+ resetDetail();history=[];$('list').replaceChildren();
+ const fields='id,month_key,version_no,snapshot_kind,created_at,created_by,note,person_count,day_record_count,restored_from_id';
+ let offset=0;const rows=[];
+ while(true){const page=await request('roster_publication_history?select='+fields+'&month_key=eq.'+encodeURIComponent(k)+'&order=version_no.desc&offset='+offset+'&limit=100');if(current!==job)return;if(!Array.isArray(page))throw new Error('Geçmiş listesi doğrulanamadı.');if(!page.length)break;rows.push(...page);offset+=page.length;if(rows.length>10000)throw new Error('Geçmiş listesi sınırı aşıldı.');}
+ if(current!==job)return;
+ for(const row of rows)id(row.id);
+ history=rows;renderList();if(!keepMessage)say('✓ '+rows.length+' geçmiş kaydı okundu. Hiçbir yayın değiştirilmedi.','ok');
+}
+async function preview(sourceId){if(busy)return;const current=job;lock(true);try{
+ const rows=await request('roster_publication_history?select=*&id=eq.'+id(sourceId)+'&limit=1');if(current!==job)return;
+ if(!Array.isArray(rows)||rows.length!==1)throw new Error('Geçmiş kaydı bulunamadı.');
+ const row=rows[0];if(row.month_key!==$('month').value||row.snapshot_schema_version!==1||!Array.isArray(row.snapshot_rows)||row.snapshot_rows.length!==row.day_record_count)throw new Error('Kopyanın biçimi doğrulanamadı.');
+ const people=new Map();for(const r of row.snapshot_rows){if(r.month_key!==row.month_key)throw new Error('Kopyada farklı aya ait kayıt var.');if(!people.has(r.person_key))people.set(r.person_key,{...r,shifts:0,leaves:0});const p=people.get(r.person_key);if(r.shift_code)p.shifts++;if(r.is_leave)p.leaves++;}
+ if(people.size!==row.person_count)throw new Error('Kişi sayısı doğrulanamadı.');
+ selected=row;const ordered=[...people.values()].sort((a,b)=>(a.display_order??9999)-(b.display_order??9999));
+ const names=new Map(ordered.map(p=>[p.person_key,p.full_name]));
+ $('detail').innerHTML=`<h2>Sürüm ${esc(row.version_no)} — ${esc(row.month_key)}</h2><p class="muted">Bu bir geçmiş kopyası önizlemesidir; mevcut yayınla eşit olduğunu tek başına kanıtlamaz.</p><div class="scroll"><table><thead><tr><th>Kişi</th><th>Yerleşke</th><th>Sıra</th><th>Badi</th><th>Ay özeti</th></tr></thead><tbody>${ordered.map(p=>`<tr><td>${esc(p.full_name)}</td><td>${esc(p.location)}</td><td>${esc(p.display_order)}</td><td>${esc(names.get(p.buddy_key)||p.buddy_key||'—')}</td><td>${p.location==='Yeni Yerleşke'?'Nöbet planlaması bu yerleşkede yapılır.':esc(p.shifts)+' nöbet · '+esc(p.leaves)+' izin günü'}</td></tr>`).join('')}</tbody></table></div><div class="confirm"><h2>Bu sürümü yeniden yayınla</h2><p>Bu işlem ${esc(row.month_key)} ayının mevcut ortak çizelgesini bu kopyayla değiştirir. Taslaklar ve kişisel yayınlar değişmez. Geri dönüş yeni bir geçmiş sürümü oluşturur.</p>${row.id===history[0]?.id?'<p class="muted">Bu kayıt zaten son sürüm. Geri dönüş yapılamaz.</p>':''}<label><input id="approved" type="checkbox"> Seçilen sürümü inceledim; mevcut ortak yayının değişeceğini anladım.</label><label for="confirmMonth">Onay için ayı yaz: ${esc(row.month_key)}</label><input id="confirmMonth" type="text" placeholder="YYYY-MM" autocomplete="off"><p><button id="restore" type="button" class="danger" disabled>Seçilen sürüme geri dön — gerçek yayını değiştirir</button></p></div>`;
+ $('detail').hidden=false;$('approved').onchange=syncRestore;$('confirmMonth').oninput=syncRestore;$('restore').onclick=()=>void restore();say('Sürüm '+row.version_no+' önizlemesi açıldı. Hiçbir yayın değiştirilmedi.');$('detail').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){if(current===job){resetDetail();say(e.message,'error')}}finally{lock(false)}
+}
+function syncRestore(){const button=$('restore');if(!button)return;button.disabled=busy||!selected||!history.length||selected.id===history[0].id||!$('approved')?.checked||$('confirmMonth')?.value!==selected.month_key}
+async function restore(){
+ if(busy||!selected||!history.length||$('restore')?.disabled)return;
+ const source=selected,latest=history[0],current=job;
+ if(!confirm(source.month_key+' ortak çizelgesi sürüm '+source.version_no+' ile değiştirilsin mi?\n'+source.person_count+' kişi / '+source.day_record_count+' günlük kayıt.\nBu gerçek bir yayın değişikliğidir.'))return;
+ let started=false;lock(true);try{
+ session();say('Geri dönüş isteği gönderiliyor…');started=true;
+ const result=await request('rpc/restore_roster_publication',{method:'POST',body:JSON.stringify({p_source_id:id(source.id),p_expected_latest_id:id(latest.id),p_confirm_month:source.month_key})});
+ if(current!==job)return;
+ if(!result||result.month_key!==source.month_key||Number(result.restored_from_id)!==Number(source.id)||!Number.isInteger(result.version_no))throw new Error('Geri dönüş yanıtı doğrulanamadı.');
+ const message='✓ Geri dönüş tamamlandı. '+result.month_key+' · yeni sürüm '+result.version_no+' · '+result.person_count+' kişi / '+result.day_record_count+' kayıt.';
+ say(message,'ok');started=false;
+ try{await load(true);if(current===job)say(message,'ok')}catch(e){say(message+'\nListe yenilenemedi: '+e.message+'\nTekrar geri dönüş yapma; geçmişi yeniden getir.','error')}
+ }catch(e){if(current===job){resetDetail();say((started?'İsteğin sonucu doğrulanamadı. Aynı işlemi tekrarlamadan önce geçmiş listesini ve personel ekranını yenileyerek kontrol et.\n':'')+e.message,'error')}}finally{lock(false)}
+}
+$('form').onsubmit=async event=>{event.preventDefault();if(busy)return;lock(true);const current=++job;let acquired=null;try{
+ const response=await fetch(BASE+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail($('username').value),password:$('password').value})});$('password').value='';const s=await response.json();if(current!==job)return;if(!response.ok||!s.access_token||!s.user?.id)throw new Error('Giriş başarısız. Kullanıcı adını ve şifreni kontrol et.');
+ token=s.access_token;acquired=token;expiry=Date.now()+Number(s.expires_in||3600)*1000;
+ const admins=await request('app_admins?select=user_id&user_id=eq.'+encodeURIComponent(s.user.id));if(current!==job)return;if(!Array.isArray(admins)||!admins.some(a=>a.user_id===s.user.id))throw new Error('Bu hesapta yönetici yetkisi yok.');
+ $('login').hidden=true;$('panel').hidden=false;await load();
+ }catch(e){if(current===job){clear();say(e.message,'error');if(acquired)void fetch(BASE+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+acquired}}).catch(()=>{})}}finally{$('password').value='';lock(false)}};
+$('reload').onclick=async()=>{if(busy)return;lock(true);try{await load()}catch(e){resetDetail();say(e.message,'error')}finally{lock(false)}};
+$('month').onchange=()=>{resetDetail();history=[];$('list').replaceChildren();say('Ay değişti. Geçmişi getir düğmesine bas.')};
+$('logout').onclick=async()=>{if(busy)return;const old=token;clear();say('Yerel oturum temizlendi.');if(old){try{const r=await fetch(BASE+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+old}});if(!r.ok)throw new Error();say('Oturum kapatıldı.')}catch(_){say('Yerel oturum temizlendi; sunucuda çıkış doğrulanamadı.','error')}}};
+</script></main></body></html>
