@@ -3,142 +3,188 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Yönetici Bağlantı Testi</title>
+<meta name="robots" content="noindex">
+<title>Nöbetlerim ve Ortak Çizelge</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#101c30;color:#fff;font:16px system-ui}
-main{max-width:460px;margin:35px auto;padding:22px}
-h1{font-size:26px}
-p{line-height:1.6;color:#cbd5e1}
-input,button{width:100%;padding:15px;margin:9px 0 20px;
-border-radius:10px;font:inherit}
-input{border:1px solid #64748b;background:#17263d;color:white}
-button{border:0;background:#51d3b0;color:#102334;font-weight:700}
-button:disabled{opacity:.5}
-#sonuc{white-space:pre-wrap;padding:15px;background:#17263d;
-border-radius:10px;overflow-wrap:anywhere}
+*{box-sizing:border-box}body{margin:0;background:#101c30;color:#fff;font:16px system-ui}main{max-width:1050px;margin:20px auto;padding:20px}h1{font-size:27px}p{line-height:1.6;color:#cbd5e1}form{max-width:500px}input,button,select{width:100%;padding:13px;margin:8px 0 16px;border-radius:10px;font:inherit}input,select{background:#17263d;color:white;border:1px solid #64748b}button{border:0;background:#51d3b0;color:#102334;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:default}article,#sonuc{background:#17263d;border-radius:12px;padding:16px;margin:15px 0;overflow-wrap:anywhere}h2{font-size:20px}li{margin:12px 0;line-height:1.6}#sonuc{white-space:pre-wrap}.tablewrap{overflow:auto;max-height:65vh;border:1px solid #64748b;border-radius:10px}table{border-collapse:separate;border-spacing:0;font-size:13px;background:#17263d}th,td{padding:10px 7px;min-width:46px;text-align:center;border-bottom:1px solid #344861;white-space:nowrap}thead th{position:sticky;top:0;background:#101c30;z-index:2}.name{position:sticky;left:0;min-width:155px;max-width:230px;white-space:normal;text-align:left;background:#17263d;z-index:1}thead .name{background:#101c30;z-index:3}.izin{background:#5b5026;color:#fff0a0}.shift{background:#243e59}.shift small{display:block;color:#cbd5e1;font-weight:normal}#temizle{max-width:500px;background:#cbd5e1}.note{font-size:14px}[hidden]{display:none!important}
 </style>
 </head>
-<body>
-<main>
-<h1>Yönetici bağlantı testi</h1>
-<p>Uygulama için oluşturduğun hesabı kullan.
-Supabase panel şifreni veya veritabanı şifreni girme.</p>
-
+<body><main>
+<h1>Nöbet çizelgesi</h1>
+<p>Yayınlanmış çizelgeleri görüntüle. Bu ekranda çizelge değiştirme veya yayınlama işlemi yoktur.</p>
 <form id="form">
 <label for="email">E-posta</label>
 <input id="email" type="email" autocomplete="username" required>
-
 <label for="sifre">Uygulama şifresi</label>
-<input id="sifre" type="password"
-autocomplete="current-password" required>
-
-<button id="buton" type="submit">Bağlantıyı kontrol et</button>
+<input id="sifre" type="password" autocomplete="current-password" required>
+<label for="gorunum">Görünüm</label>
+<select id="gorunum"><option value="own">Nöbetlerim</option><option value="shared">Tüm personelin çizelgesi</option></select>
+<div id="ayAlani" hidden><label for="ay">Çizelge ayı</label><input id="ay" type="month"><p class="note">İzin günleri yalnızca “İzin” olarak gösterilir; izin türü ve açıklaması paylaşılmaz.</p></div>
+<button id="giris" type="submit">Çizelgeyi getir</button>
 </form>
-
-<div id="sonuc" role="status">Test henüz yapılmadı.</div>
-<p>Bu sayfa çizelgeleri değiştirmez.
-Giriş bilgilerini tarayıcı depolamasına kaydetmez.</p>
+<div id="sonuc" role="status" aria-live="polite">Henüz giriş yapılmadı.</div>
+<section id="kayitlar"></section>
+<button id="temizle" type="button">Ekranı temizle</button>
+<p class="note">Şifre ve oturum bu sayfanın kodu tarafından tarayıcı depolamasına yazılmaz. Her sorgudan sonra oturumu kapatma isteği gönderilir. Ay veya görünüm değiştirdikten sonra şifreni yeniden girip “Çizelgeyi getir”e bas.</p>
 </main>
-
 <script>
-const URL = "https://rtqtildfytvyyrygcgyt.supabase.co";
-const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
-const form = document.getElementById("form");
-const email = document.getElementById("email");
-const sifre = document.getElementById("sifre");
-const buton = document.getElementById("buton");
-const sonuc = document.getElementById("sonuc");
-
-form.addEventListener("submit", async function(event) {
-  event.preventDefault();
-  buton.disabled = true;
-  sonuc.textContent = "Giriş kontrol ediliyor…";
-  let token = null;
-
-  try {
-    const cevap = await fetch(
-      URL + "/auth/v1/token?grant_type=password",
-      {
-        method: "POST",
-        headers: {
-          "apikey": KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email: email.value.trim(),
-          password: sifre.value
-        })
-      }
-    );
-    sifre.value = "";
-    const oturum = await cevap.json();
-
-    if (!cevap.ok) {
-      sonuc.textContent =
-        "Giriş başarısız. HTTP " + cevap.status +
-        "\n" + (oturum.msg || oturum.error_description ||
-        "E-posta ve uygulama şifreni kontrol et.");
-      return;
-    }
-
-    token = oturum.access_token;
-    if (!token || !oturum.user?.id) {
-      throw new Error("Oturum bilgisi alınamadı.");
-    }
-
-    sonuc.textContent = "Giriş başarılı. Yönetici kaydı kontrol ediliyor…";
-
-    const kontrol = await fetch(
-      URL + "/rest/v1/app_admins?select=user_id&user_id=eq." +
-      encodeURIComponent(oturum.user.id),
-      {
-        headers: {
-          "apikey": KEY,
-          "Authorization": "Bearer " + token
-        },
-        cache: "no-store"
-      }
-    );
-
-    if (!kontrol.ok) {
-      sonuc.textContent =
-        "✓ Hesap girişi başarılı." +
-        "\nYönetici kaydı sorgulanamadı. HTTP " + kontrol.status +
-        "\nTablo veya erişim politikası ayrıca kontrol edilmeli.";
-      return;
-    }
-
-    const kayitlar = await kontrol.json();
-    const bulundu = Array.isArray(kayitlar) &&
-      kayitlar.some(k => k.user_id === oturum.user.id);
-
-    sonuc.textContent = bulundu
-      ? "✓ Hesap girişi başarılı.\n✓ Hesabın yönetici kaydı okunabildi." +
-        "\nBu sonuç tüm veri erişim kurallarını test etmez."
-      : "✓ Hesap girişi başarılı.\nYönetici kaydı görüntülenemedi." +
-        "\nKayıt eksik olabilir veya erişim politikası gizliyor olabilir.";
-  } catch (hata) {
-    sonuc.textContent =
-      "Test tamamlanamadı. Bağlantı veya yanıt hatası oluştu." +
-      "\nBu ekranın görüntüsünü paylaşabilirsin; şifreni paylaşma.";
-  } finally {
-    sifre.value = "";
-    if (token) {
-      try {
-        await fetch(URL + "/auth/v1/logout?scope=local", {
-          method: "POST",
-          headers: {
-            "apikey": KEY,
-            "Authorization": "Bearer " + token
-          }
-        });
-      } catch (_) {}
-    }
-    token = null;
-    buton.disabled = false;
+'use strict';
+const BASE = 'https://rtqtildfytvyyrygcgyt.supabase.co';
+const KEY = 'sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ';
+const $ = id => document.getElementById(id);
+let generation = 0, controller = null;
+const now = new Date();
+$('ay').value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+function element(tag, text, parent, cls) {
+  const e = document.createElement(tag);
+  if (text !== undefined && text !== null) e.textContent = String(text);
+  if (cls) e.className = cls;
+  if (parent) parent.append(e);
+  return e;
+}
+function clearScreen(message = 'Ekran temizlendi.') {
+  generation++;
+  if (controller) controller.abort();
+  controller = null;
+  $('kayitlar').replaceChildren();
+  $('sifre').value = '';
+  $('sonuc').textContent = message;
+  $('giris').disabled = false;
+}
+$('temizle').onclick = () => clearScreen();
+$('gorunum').onchange = () => {
+  clearScreen('Görünüm değişti. Şifreni girip çizelgeyi getir.');
+  $('ayAlani').hidden = $('gorunum').value !== 'shared';
+  $('ay').required = $('gorunum').value === 'shared';
+};
+$('ay').onchange = () => clearScreen('Ay değişti. Şifreni girip çizelgeyi getir.');
+window.addEventListener('pagehide', () => clearScreen());
+window.addEventListener('pageshow', e => { if(e.persisted) clearScreen(); });
+async function readRows(table, parameters, token, signal) {
+  const all = [];
+  let offset = 0;
+  while (true) {
+    const query = new URLSearchParams({...parameters, limit:'300', offset:String(offset)});
+    const response = await fetch(BASE + '/rest/v1/' + table + '?' + query, {
+      headers:{apikey:KEY,Authorization:'Bearer '+token},cache:'no-store',signal
+    });
+    if (!response.ok) throw new Error('Çizelge sorgusu başarısız. HTTP ' + response.status);
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw new Error('Beklenmeyen çizelge yanıtı.');
+    if (!rows.length) return all;
+    all.push(...rows); offset += rows.length;
+    if (all.length > 30000) throw new Error('Çok fazla kayıt bulundu. Liste eksik gösterilmedi; sorgu durduruldu.');
   }
-});
-</script>
-</body>
-</html>
+}
+function renderOwn(row, root) {
+  const card = element('article', null, root);
+  element('h2', row.title || 'Nöbetlerim', card);
+  element('p', 'Dönem: ' + row.month_key, card);
+  const data = row.data;
+  if (data && data.test === true) element('p', 'TEST VERİSİ — Gerçek nöbet değildir.', card);
+  if (data && Array.isArray(data.shifts)) {
+    const list = element('ul', null, card);
+    for (const shift of data.shifts) {
+      if (!shift || typeof shift !== 'object') continue;
+      element('li', (shift.date || '') + ' · ' + (shift.start || '') + '–' + (shift.end || '') + (shift.note ? ' · ' + shift.note : ''), list);
+    }
+    if (!data.shifts.length) element('p', 'Bu dönemde listelenen nöbet yok.', card);
+  } else element('p', 'Kayıt alındı; veri biçimi bu test ekranıyla uyumlu değil.', card);
+}
+function renderShared(rows, month, root) {
+  const [year, mon] = month.split('-').map(Number);
+  const days = new Date(year,mon,0).getDate();
+  const people = new Map();
+  for (const row of rows) {
+    if (!people.has(row.person_key)) people.set(row.person_key, {name:row.full_name, days:new Map()});
+    people.get(row.person_key).days.set(row.day, row);
+  }
+  const title = new Intl.DateTimeFormat('tr-TR',{month:'long',year:'numeric'}).format(new Date(year,mon-1,1));
+  element('h2', title + ' · Tüm personel', root);
+  element('p', people.size + ' kişi. Hücrelerde vardiya kodu ve saatleri gösterilir. “—” işareti: o gün yayınlanmış vardiya veya izin bilgisi yok.', root);
+  const wrap = element('div', null, root, 'tablewrap');
+  const table = element('table', null, wrap);
+  element('caption', title + ' yayınlanmış nöbet çizelgesi', table);
+  const head = element('tr', null, element('thead', null, table));
+  const nameHeader = element('th', 'Ad Soyad', head, 'name'); nameHeader.scope='col';
+  for(let day=1;day<=days;day++) {
+    const weekday = new Intl.DateTimeFormat('tr-TR',{weekday:'short'}).format(new Date(year,mon-1,day));
+    const th = element('th', day + '\n' + weekday, head); th.style.whiteSpace='pre-line'; th.scope='col';
+  }
+  const body = element('tbody', null, table);
+  for(const person of [...people.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'tr'))) {
+    const tr = element('tr', null, body);
+    const name = element('th', person.name, tr, 'name'); name.scope='row';
+    for(let day=1;day<=days;day++) {
+      const row = person.days.get(day);
+      const td = element('td', null, tr);
+      if(row && row.is_leave === true) {td.textContent='İzin';td.className='izin';}
+      else if(row && row.shift_code) {
+        td.className='shift'; element('b',row.shift_code,td);
+        const start=String(row.shift_start || '').slice(0,5), end=String(row.shift_end || '').slice(0,5);
+        element('small',start+'–'+end,td);
+        if(end <= start) td.title='Bitiş ertesi gün';
+      } else td.textContent='—';
+    }
+  }
+}
+$('form').onsubmit = async event => {
+  event.preventDefault();
+  const password = $('sifre').value;
+  const email = $('email').value.trim();
+  const mode = $('gorunum').value, month = $('ay').value;
+  clearScreen('Giriş kontrol ediliyor…');
+  const job = generation;
+  if (mode==='shared' && !/^[1-9][0-9]{3}-(0[1-9]|1[0-2])$/.test(month)) {
+    $('sonuc').textContent='Geçerli bir ay seç.'; return;
+  }
+  const active = new AbortController(); controller=active;
+  $('giris').disabled=true;
+  let token=null;
+  try {
+    const response = await fetch(BASE+'/auth/v1/token?grant_type=password', {
+      method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email,password}),signal:active.signal
+    });
+    const session=await response.json();
+    token=session.access_token || null;
+    if(job!==generation) return;
+    if(!response.ok) throw new Error('Giriş başarısız. HTTP '+response.status+'\nE-posta ve uygulama şifreni kontrol et.');
+    if(!token || !session.user?.id) throw new Error('Oturum bilgisi alınamadı.');
+    $('sonuc').textContent='Giriş başarılı. Çizelge alınıyor…';
+    const fragment=document.createDocumentFragment();
+    if(mode==='own') {
+      const rows=await readRows('staff_schedules', {
+        select:'month_key,title,data',user_id:'eq.'+session.user.id,
+        published:'eq.true',order:'month_key.desc'
+      }, token, active.signal);
+      if(job!==generation) return;
+      rows.forEach(row=>renderOwn(row,fragment));
+      $('kayitlar').replaceChildren(fragment);
+      $('sonuc').textContent=rows.length ? '✓ '+rows.length+' kişisel yayınlanmış dönem kaydı alındı.' : '✓ Giriş başarılı. Kişisel yayınlanmış kayıt bulunamadı.';
+    } else {
+      const rows=await readRows('published_roster_days', {
+        select:'month_key,person_key,full_name,day,shift_code,shift_start,shift_end,is_leave',
+        month_key:'eq.'+month,order:'person_key.asc,day.asc'
+      }, token, active.signal);
+      if(job!==generation) return;
+      if(rows.length) renderShared(rows,month,fragment);
+      $('kayitlar').replaceChildren(fragment);
+      $('sonuc').textContent=rows.length ? '✓ '+month+' ortak çizelgesi alındı. Yalnızca görüntüleme.' : '✓ Giriş başarılı. Bu ay için erişilebilir ortak yayın bulunamadı. Henüz yayın yapılmamış veya hesabın erişim koşulları sağlanmamış olabilir.';
+    }
+  } catch(error) {
+    if(job===generation) {$('kayitlar').replaceChildren();$('sonuc').textContent=error.name==='AbortError'?'İşlem iptal edildi.':(error.message || 'İşlem tamamlanamadı.');}
+  } finally {
+    if(token) {
+      try {
+        const logout=await fetch(BASE+'/auth/v1/logout?scope=local', {
+          method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token},keepalive:true
+        });
+        if(!logout.ok && job===generation) $('sonuc').textContent+='\nOturum kapatma isteği doğrulanamadı.';
+      } catch(_) {if(job===generation) $('sonuc').textContent+='\nOturum kapatma isteği doğrulanamadı.';}
+    }
+    token=null;
+    if(job===generation) {controller=null;$('giris').disabled=false;$('sifre').value='';}
+  }
+};
+</script></body></html>

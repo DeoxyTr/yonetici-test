@@ -1407,6 +1407,102 @@ new MutationObserver(() => {
 });
 
 // TEK PERSONELLİ TEST KOPYASI SONU
+
+// ORTAK ÇİZELGE YAYINI — mevcut taslak ve test işlemlerinden ayrıdır.
+const sharedSection = document.createElement('section');
+const sharedHeading = document.createElement('h2');
+sharedHeading.textContent = 'Ortak çizelgeyi yayınla';
+const sharedHelp = document.createElement('p');
+sharedHelp.textContent = 'Bu bölüm yalnızca ortak çizelgeyi yayınlar. Hesap eşleştirmesi zorunlu değildir. Yayına dahil edilenlerin adı, vardiyası ve izin günleri tüm aktif personele açılır. İzin açıklamaları ve hesap bilgileri aktarılmaz. Aynı ayın önceki ortak yayını bütünüyle değiştirilir: bu kez kapsam dışı bıraktıkların o ayın ortak listesinden çıkar. Kişisel yayınlar, taslaklar ve test kopyaları değişmez.';
+const sharedPublish = document.createElement('button');
+sharedPublish.type = 'button';
+sharedPublish.textContent = 'Ortak çizelgeyi yayınla — tüm aktif personel görür';
+const sharedMessage = document.createElement('p');
+sharedMessage.setAttribute('role', 'status');
+sharedMessage.style.whiteSpace = 'pre-wrap';
+sharedSection.append(sharedHeading, sharedHelp, sharedPublish, sharedMessage);
+$('onizleme').append(sharedSection);
+
+function buildSharedMonth() {
+  draftSessionCheck();
+  if (!draft || $('onizleme').hidden) throw new Error('Önce PDF veya kaydedilmiş taslak aç.');
+  const source = draft.result.month;
+  if (!monthBounds($('donem').value) || $('donem').value !== source.key) throw new Error('Seçilen ay PDF ayıyla uyuşmuyor.');
+  if (!sourceReviewCheck.checked) throw new Error('Önce orijinal PDF kontrolü kutusunu onayla.');
+  if (scopeEditors.length !== draft.people.length || leaveEditors.length !== draft.people.length) throw new Error('Satır kontrolleri eksik. Taslağı yeniden aç.');
+  const people = [], excluded = [], ids = new Set();
+  draft.people.forEach((person,index) => {
+    const scope = scopeEditors[index], editor = leaveEditors[index];
+    if (!['included','excluded'].includes(scope.select.value)) throw new Error(person.name + ': yayın kapsamı seçilmedi.');
+    if (scope.select.value === 'excluded') {
+      if (!scope.reason.value.trim()) throw new Error(person.name + ': kapsam dışı bırakma nedenini yaz.');
+      excluded.push(person.name); return;
+    }
+    validateLeave(editor);
+    if (editor.invalid || editor.conflict) throw new Error(person.name + ': izin tarihlerini veya izin–nöbet çakışmasını düzelt.');
+    if (person.detectedLeaves?.length > 1) throw new Error(person.name + ': birden fazla ayrı izin aralığı var; bu sürüm tek aralık destekliyor.');
+    const id = String(person.id || person.name || '').trim();
+    const name = String(person.name || '').trim();
+    if (!id || !name || ids.has(id)) throw new Error('Eksik veya tekrarlanan kişi kimliği: ' + name);
+    ids.add(id);
+    const out = {id,name,s:{...(person.s || {})}};
+    if (person.leave) out.izin = [Number(person.leave.start.slice(8)),Number(person.leave.end.slice(8))];
+    people.push(out);
+  });
+  refreshLeaveSummary();
+  if (!people.length) throw new Error('Yayına dahil edilen kişi yok.');
+  const shifts = {};
+  for (const person of people) {
+    for (const code of new Set(Object.values(person.s))) {
+      const src = source.shifts?.[code];
+      if (!src || src.s == null || src.e == null || !Number.isFinite(Number(src.s)) || !Number.isFinite(Number(src.e))) throw new Error(code + ': sayısal vardiya saatleri bulunamadı. Yayın durduruldu.');
+      shifts[code] = {s:Number(src.s),e:Number(src.e)};
+    }
+  }
+  return {month:{key:source.key,people,shifts}, title:source.title || source.key, excluded};
+}
+sharedPublish.onclick = async () => {
+  if (busy) return;
+  const job = generation;
+  let started = false;
+  try {
+    const review = buildSharedMonth();
+    const names = review.month.people.map(p => '• ' + p.name).join('\n');
+    const approved = window.confirm(
+      review.title + ' ortak çizelgesi yayınlansın mı?\n\n' +
+      'TÜM AKTİF PERSONEL GÖREBİLECEK:\n' + names + '\n\n' +
+      'Kapsam dışı: ' + (review.excluded.join(', ') || 'Yok') + '\n\n' +
+      'İsimler, vardiyalar ve yalnızca İzin etiketi paylaşılır.\n' +
+      'AYNI AYIN ÖNCEKİ ORTAK YAYINI TAMAMEN DEĞİŞİR. Kapsam dışı kişiler ortak listeden çıkar.\n' +
+      'Boş günler izin sayılmaz. Taslaklar, kişisel yayınlar ve testler değişmez.'
+    );
+    if (!approved) return;
+    draftSessionCheck();
+    busy = true; sharedPublish.disabled = true; draftButtons(true);
+    sharedMessage.textContent = 'Ortak çizelge yayınlanıyor…';
+    started = true;
+    const response = await fetch(URL + '/rest/v1/rpc/publish_shared_roster', {
+      method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({p_month:review.month})
+    });
+    const body = await response.json().catch(() => null);
+    if (job !== generation || !token) return;
+    if (!response.ok) {
+      started = false;
+      throw new Error('Yayın başarısız. HTTP '+response.status+(body?.message ? '\n'+body.message : ''));
+    }
+    if (!Number.isInteger(body) || body < 1) throw new Error('Yayın yanıtı doğrulanamadı.');
+    sharedMessage.textContent = '✓ '+review.title+' ortak çizelgesi yayınlandı.\n'+review.month.people.length+' kişi; '+body+' günlük kayıt.\nAktif personel “Tüm personelin çizelgesi” görünümünden okuyabilir. Kişisel yayınlar değişmedi.';
+    status(sharedMessage.textContent);
+  } catch(error) {
+    if(job===generation) sharedMessage.textContent = (started ? 'İsteğin sonucu doğrulanamadı. Yeniden yayınlamadan önce personel ortak ekranından kontrol et.\n' : '') + error.message;
+  } finally {
+    busy = false; sharedPublish.disabled = false; draftButtons(false);
+  }
+};
+new MutationObserver(() => {
+  if ($('onizleme').hidden) sharedMessage.textContent = '';
+}).observe($('onizleme'), {attributes:true,attributeFilter:['hidden']});
 </script>
 </body>
 </html>
