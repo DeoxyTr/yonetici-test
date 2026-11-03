@@ -793,6 +793,376 @@ new MutationObserver(() => {
 });
 
 // TASLAK KAYIT EKLENTİSİ SONU
+// YAYIN KAPSAMI VE ÖN KONTROL — sürüm 1
+
+let scopeEditors = [];
+
+const publicationReviewBox = document.createElement("section");
+
+const publicationReviewTitle = document.createElement("h2");
+publicationReviewTitle.textContent = "Yayın öncesi kontrol";
+
+const publicationReviewHelp = document.createElement("p");
+publicationReviewHelp.className = "muted";
+publicationReviewHelp.textContent =
+  "Her satır için kapsam seç. Kapsam dışı satırlar taslakta kalır. " +
+  "Bu seçim mevcut yayınlanmış kayıtları silmez. " +
+  "Aşağıdaki kontrol düğmesi yayınlama yapmaz.";
+
+const sourceReviewLabel = document.createElement("label");
+sourceReviewLabel.style.display = "block";
+sourceReviewLabel.style.lineHeight = "1.6";
+
+const sourceReviewCheck = document.createElement("input");
+sourceReviewCheck.type = "checkbox";
+sourceReviewCheck.style.marginRight = "10px";
+
+sourceReviewLabel.append(
+  sourceReviewCheck,
+  document.createTextNode(
+    "Orijinal PDF'yi kontrol ettim: kişi–hesap eşleştirmelerini, " +
+    "vardiya kodlarını ve saatlerini, izin tarihlerini ve " +
+    "atlanan sayfaların çizelge içerip içermediğini inceledim."
+  )
+);
+
+const publicationCheckButton = document.createElement("button");
+publicationCheckButton.type = "button";
+publicationCheckButton.textContent =
+  "Yayın öncesi kontrol et — yayınlamaz";
+publicationCheckButton.style.margin = "16px 0";
+
+const publicationCheckResult = document.createElement("div");
+publicationCheckResult.setAttribute("role", "status");
+publicationCheckResult.style.whiteSpace = "pre-wrap";
+publicationCheckResult.style.lineHeight = "1.6";
+
+publicationReviewBox.append(
+  publicationReviewTitle,
+  publicationReviewHelp,
+  sourceReviewLabel,
+  document.createElement("br"),
+  publicationCheckButton,
+  publicationCheckResult
+);
+
+$("onizleme").append(publicationReviewBox);
+
+function clearPublicationCheck() {
+  publicationCheckResult.textContent = "";
+}
+
+function buildScopeEditors() {
+  scopeEditors = [];
+  sourceReviewCheck.checked = false;
+  clearPublicationCheck();
+
+  const header = $("tablo").querySelector("thead tr");
+  const rows = $("tablo").querySelectorAll("tbody tr");
+
+  if (!header || !draft) return;
+
+  cell(header, "Yayın kapsamı", "th");
+
+  rows.forEach((row, index) => {
+    const person = draft.people[index];
+    const td = cell(row, "");
+    td.style.minWidth = "240px";
+
+    const select = document.createElement("select");
+    select.style.width = "100%";
+    select.setAttribute(
+      "aria-label",
+      person.name + " için yayın kapsamı"
+    );
+
+    const options = [
+      ["", "Kapsam seç — henüz onaylanmadı"],
+      ["included", "Yayına dahil et"],
+      ["excluded", "Bu çizelgede kapsam dışı"]
+    ];
+
+    for (const [value, text] of options) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.append(option);
+    }
+
+    const reason = document.createElement("input");
+    reason.type = "text";
+    reason.maxLength = 300;
+    reason.placeholder = "Kapsam dışı bırakma nedeni";
+    reason.setAttribute(
+      "aria-label",
+      person.name + " için kapsam dışı bırakma nedeni"
+    );
+    reason.style.display = "none";
+    reason.style.width = "100%";
+    reason.style.marginTop = "10px";
+
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.style.marginBottom = "0";
+
+    const editor = {
+      person,
+      select,
+      reason,
+      note
+    };
+
+    function updateScope() {
+      const excluded = select.value === "excluded";
+
+      reason.style.display = excluded ? "block" : "none";
+
+      note.textContent =
+        select.value === "included"
+          ? "Yayın öncesi kontrolde hesap ve çizelge bilgileri denetlenecek."
+          : excluded
+            ? "Taslakta kalır; yeni yayın listesine alınmaz. " +
+              "Mevcut yayınlanmış kayıtları silmez."
+            : "Bu satır için henüz karar verilmedi.";
+
+      clearPublicationCheck();
+    }
+
+    editor.update = updateScope;
+
+    select.addEventListener("change", updateScope);
+    reason.addEventListener("input", clearPublicationCheck);
+
+    td.append(select, reason, note);
+    scopeEditors.push(editor);
+
+    updateScope();
+  });
+}
+
+const previewBeforeScope = preview;
+
+preview = function (result) {
+  previewBeforeScope(result);
+  buildScopeEditors();
+};
+
+const snapshotBeforeScope = createDraftSnapshot;
+
+createDraftSnapshot = function () {
+  const snapshot = snapshotBeforeScope();
+
+  if (scopeEditors.length !== snapshot.rows.length) {
+    throw new Error(
+      "Kapsam seçimleri eksik. Taslağı veya PDF'yi yeniden aç."
+    );
+  }
+
+  snapshot.rows = snapshot.rows.map((row, index) => ({
+    ...row,
+    scope: scopeEditors[index].select.value,
+    scopeReason: scopeEditors[index].reason.value.trim()
+  }));
+
+  snapshot.publicationReview = {
+    sourceChecked: sourceReviewCheck.checked
+  };
+
+  return snapshot;
+};
+
+const restoreBeforeScope = restoreDraft;
+
+restoreDraft = function (snapshot) {
+  restoreBeforeScope(snapshot);
+
+  snapshot.rows.forEach((row, index) => {
+    const editor = scopeEditors[index];
+
+    editor.select.value =
+      ["included", "excluded"].includes(row.scope)
+        ? row.scope
+        : "";
+
+    editor.reason.value =
+      typeof row.scopeReason === "string"
+        ? row.scopeReason.slice(0, 300)
+        : "";
+
+    editor.update();
+  });
+
+  sourceReviewCheck.checked =
+    snapshot.publicationReview?.sourceChecked === true;
+
+  clearPublicationCheck();
+};
+
+sourceReviewCheck.addEventListener(
+  "change",
+  clearPublicationCheck
+);
+
+$("tablo").addEventListener(
+  "input",
+  clearPublicationCheck
+);
+
+$("tablo").addEventListener(
+  "change",
+  clearPublicationCheck
+);
+
+$("donem").addEventListener(
+  "input",
+  clearPublicationCheck
+);
+
+publicationCheckButton.onclick = () => {
+  if (busy) return;
+
+  try {
+    draftSessionCheck();
+
+    if (!draft || !scopeEditors.length) {
+      throw new Error("Önce PDF seç veya bir taslak aç.");
+    }
+
+    const problems = [];
+    const included = [];
+    const usedAccounts = new Set();
+
+    if ($("donem").value !== draft.result.month.key) {
+      problems.push(
+        "Seçilen ay, PDF'den okunan ayla uyuşmuyor."
+      );
+    }
+
+    scopeEditors.forEach((scopeEditor, index) => {
+      const person = scopeEditor.person;
+      const scope = scopeEditor.select.value;
+      const leaveEditor = leaveEditors[index];
+
+      validateLeave(leaveEditor);
+
+      if (!scope) {
+        problems.push(
+          person.name + ": yayın kapsamı seçilmedi."
+        );
+        return;
+      }
+
+      if (scope === "excluded") {
+        if (!scopeEditor.reason.value.trim()) {
+          problems.push(
+            person.name +
+            ": kapsam dışı bırakma nedenini yaz."
+          );
+        }
+
+        return;
+      }
+
+      included.push(person);
+
+      const profile = profiles.find(
+        item => item.user_id === person.userId
+      );
+
+      if (!person.userId || !profile) {
+        problems.push(
+          person.name +
+          ": aktif bir personel hesabıyla eşleştirilmeli."
+        );
+      } else if (usedAccounts.has(person.userId)) {
+        problems.push(
+          person.name +
+          ": aynı hesap başka bir kişiye de seçilmiş."
+        );
+      } else {
+        usedAccounts.add(person.userId);
+      }
+
+      if (leaveEditor.invalid) {
+        problems.push(
+          person.name + ": izin tarihleri geçersiz veya eksik."
+        );
+      }
+
+      if (leaveEditor.conflict) {
+        problems.push(
+          person.name +
+          ": izin aralığında vardiya kodu var; kontrol gerekli."
+        );
+      }
+
+      if (person.detectedLeaves?.length > 1) {
+        problems.push(
+          person.name +
+          ": birden fazla ayrı izin aralığı bulundu. " +
+          "Bu editör tek aralık desteklediği için yayın kontrolü geçmedi."
+        );
+      }
+
+      const shiftCodes = Object.values(person.s || {});
+
+      if (!shiftCodes.length && !person.leave) {
+        problems.push(
+          person.name +
+          ": vardiya veya geçerli izin aralığı yok."
+        );
+      }
+
+      for (const code of new Set(shiftCodes)) {
+        if (!draft.result.month.shifts?.[code]?.t) {
+          problems.push(
+            person.name + ": " + code +
+            " kodunun saati okunamadı."
+          );
+        }
+      }
+    });
+
+    refreshLeaveSummary();
+
+    if (!included.length) {
+      problems.push("Yayına dahil edilen kişi yok.");
+    }
+
+    if (!sourceReviewCheck.checked) {
+      problems.push(
+        "Orijinal PDF kontrolü onaylanmadı."
+      );
+    }
+
+    if (problems.length) {
+      publicationCheckResult.className = "warn";
+      publicationCheckResult.textContent =
+        "Kontrol tamamlanmadı:\n\n" +
+        problems.map(text => "• " + text).join("\n") +
+        "\n\nHiçbir kayıt yayınlanmadı.";
+
+      return;
+    }
+
+    const excludedCount = scopeEditors.filter(
+      editor => editor.select.value === "excluded"
+    ).length;
+
+    publicationCheckResult.className = "ok";
+    publicationCheckResult.textContent =
+      "✓ Ekrandaki yayın öncesi kontroller geçti.\n" +
+      "Dahil edilen kişi: " + included.length + "\n" +
+      "Kapsam dışı kişi: " + excludedCount + "\n\n" +
+      "Bu yalnızca ön kontroldür; hiçbir kayıt yayınlanmadı.\n" +
+      "Seçimlerini korumak için Taslak kaydet düğmesine bas.";
+  } catch (error) {
+    publicationCheckResult.className = "warn";
+    publicationCheckResult.textContent = error.message;
+  }
+};
+
+// YAYIN KAPSAMI VE ÖN KONTROL SONU
 </script>
 </body>
 </html>
