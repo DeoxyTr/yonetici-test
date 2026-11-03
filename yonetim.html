@@ -302,7 +302,7 @@ $("pdf").onchange = async event => {
     if (!libraries) {
       libraries = Promise.all([
         import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.min.mjs"),
-        import("./parser.js")
+        import("./parser.js?v=2")
       ]).catch(error => {
         libraries = null;
         throw error;
