@@ -3,118 +3,99 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Personel — Profil Testi</title>
+<title>Personel — Test Çizelgesi</title>
 <style>
 *{box-sizing:border-box}
-body{
-  margin:0;
-  background:#101c30;
-  color:#fff;
-  font:16px system-ui;
-}
-main{
-  max-width:520px;
-  margin:30px auto;
-  padding:22px;
-}
+body{margin:0;background:#101c30;color:#fff;font:16px system-ui}
+main{max-width:800px;margin:25px auto;padding:20px}
 h1{font-size:26px}
 p{line-height:1.6}
 .muted{color:#cbd5e1}
 input,button{
-  width:100%;
-  padding:14px;
-  margin:9px 0 20px;
-  border-radius:10px;
-  font:inherit;
+  width:100%;padding:14px;margin:9px 0 18px;
+  border-radius:10px;font:inherit
 }
-input{
-  border:1px solid #64748b;
-  background:#17263d;
-  color:white;
-}
-button{
-  border:0;
-  background:#51d3b0;
-  color:#102334;
-  cursor:pointer;
-}
+input{border:1px solid #64748b;background:#17263d;color:white}
+button{border:0;background:#51d3b0;color:#102334;cursor:pointer}
 button:disabled{opacity:.5}
 #sonuc{
-  white-space:pre-wrap;
-  padding:16px;
-  background:#17263d;
-  border-radius:10px;
-  overflow-wrap:anywhere;
+  white-space:pre-wrap;background:#17263d;
+  padding:16px;border-radius:10px;overflow-wrap:anywhere
 }
+.test-banner{
+  padding:15px;border:1px solid #ffd58a;
+  border-radius:10px;color:#ffd58a
+}
+.scroll{overflow:auto}
+table{border-collapse:collapse;width:100%;margin:16px 0}
+th,td{border:1px solid #475569;padding:10px;text-align:left}
+th{background:#17263d}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
-<h1>Personel — Profil testi</h1>
+<h1>Personel — Test çizelgesi</h1>
 
 <p class="muted">
-Sürüm: personel-profil-test-1.
-Bu sayfa çizelge kaydetmez veya yayınlamaz.
-</p>
-
-<p>
-Test personeli için oluşturduğun uygulama hesabını kullan.
-Yönetici hesabını, Supabase panel şifreni veya veritabanı
-şifreni kullanma.
+Sürüm: personel-cizelge-test-2.
+Bu ekran gerçek yayın çizelgesi değildir.
 </p>
 
 <form id="form">
 <label for="email">Test personeli e-posta</label>
-<input
-  id="email"
-  type="email"
-  autocomplete="username"
-  required
->
+<input id="email" type="email" autocomplete="username" required>
 
 <label for="sifre">Uygulama şifresi</label>
-<input
-  id="sifre"
-  type="password"
-  autocomplete="current-password"
-  required
->
+<input id="sifre" type="password"
+autocomplete="current-password" required>
 
-<button id="giris" type="submit">
-Personel girişini kontrol et
-</button>
+<button id="giris" type="submit">Test personeli girişi</button>
 </form>
 
-<div id="sonuc" role="status">
-Henüz test yapılmadı.
-</div>
+<div id="sonuc" role="status">Henüz giriş yapılmadı.</div>
 
-<button id="cikis" type="button" hidden>
-Çıkış yap ve ekranı temizle
-</button>
+<section id="panel" hidden>
+<button id="yenile" type="button">Test çizelgesini yenile</button>
 
-<p class="muted">
-Bu kod şifreyi veya oturum anahtarını localStorage,
-sessionStorage ya da çerezlere yazmaz.
-Bu test, başka personelin kayıtlarına erişilemediğini
-tek başına kanıtlamaz.
+<section id="cizelge" hidden>
+<p class="test-banner">
+YALNIZCA TEST KOPYASI — Gerçek görev bildirimi değildir.
+Kaynak kişinin çizelgesi test hesabına gösterilmektedir.
 </p>
+<h2 id="baslik"></h2>
+<p id="kaynak"></p>
+<p id="izin"></p>
+<p id="sure" class="muted"></p>
+<div class="scroll"><table id="tablo"></table></div>
+</section>
+
+<button id="cikis" type="button">Çıkış yap ve ekranı temizle</button>
+</section>
 </main>
 
 <script>
 const BASE = "https://rtqtildfytvyyrygcgyt.supabase.co";
 const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
-
 const $ = id => document.getElementById(id);
 
 let token = null;
-let busy = false;
+let userId = null;
+let expiresAt = 0;
 let generation = 0;
+let busy = false;
+
+function clearSchedule() {
+  $("cizelge").hidden = true;
+  $("tablo").replaceChildren();
+  $("baslik").textContent = "";
+  $("kaynak").textContent = "";
+  $("izin").textContent = "";
+  $("sure").textContent = "";
+}
 
 async function logoutToken(value) {
   if (!value) return;
-
   try {
     await fetch(BASE + "/auth/v1/logout?scope=local", {
       method: "POST",
@@ -128,64 +109,173 @@ async function logoutToken(value) {
 
 async function closeSession() {
   generation++;
-
   const previous = token;
   token = null;
+  userId = null;
+  expiresAt = 0;
 
   $("sifre").value = "";
   $("email").value = "";
   $("form").hidden = false;
-  $("cikis").hidden = true;
-
-  $("sonuc").textContent =
-    "Oturum bilgileri ekrandan temizlendi.";
+  $("panel").hidden = true;
+  clearSchedule();
+  $("sonuc").textContent = "Oturum bilgileri temizlendi.";
 
   await logoutToken(previous);
 }
 
 $("cikis").onclick = closeSession;
-
 window.addEventListener("pagehide", () => {
   void closeSession();
 });
 
-async function readRows(path, accessToken) {
+async function readRows(path) {
+  if (!token || Date.now() >= expiresAt) {
+    throw new Error("Oturum süresi doldu. Çıkış yapıp tekrar giriş yap.");
+  }
+
   const response = await fetch(BASE + "/rest/v1/" + path, {
     headers: {
       apikey: KEY,
-      Authorization: "Bearer " + accessToken
+      Authorization: "Bearer " + token
     },
     cache: "no-store"
   });
 
   if (!response.ok) {
-    throw new Error(
-      "Veritabanı sorgusu başarısız. HTTP " + response.status
-    );
+    throw new Error("Veri okunamadı. HTTP " + response.status);
   }
 
   const rows = await response.json();
 
   if (!Array.isArray(rows)) {
-    throw new Error("Veritabanı yanıtı beklenen biçimde değil.");
+    throw new Error("Veritabanı yanıtı geçersiz.");
   }
 
   return rows;
 }
 
+function addCell(row, text, tag = "td") {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  row.append(element);
+}
+
+function showTest(record) {
+  const data = record.data;
+  const month = data?.month;
+  const person = data?.person;
+
+  if (
+    data?.schemaVersion !== 1 ||
+    data?.testOnly !== true ||
+    !month ||
+    !person ||
+    record.month_key !== month.key ||
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(month.key)
+  ) {
+    throw new Error("Test çizelgesinin biçimi desteklenmiyor.");
+  }
+
+  const [year, number] = month.key.split("-").map(Number);
+  const dayCount = new Date(year, number, 0).getDate();
+
+  $("baslik").textContent = month.title + " — TEST KOPYASI";
+  $("kaynak").textContent =
+    "Kaynak kişi: " + person.name +
+    " · Görüntüleyen hesap: Test Personeli";
+
+  const leave = person.leave;
+
+  $("izin").textContent = leave
+    ? "İzin aralığı: " + leave.start + " – " + leave.end
+    : "Bu test kopyasında izin aralığı yok.";
+
+  $("sure").textContent =
+    "Test kimliği: " + record.id +
+    " · Erişim sonu: " +
+    new Date(record.expires_at).toLocaleString("tr-TR");
+
+  const head = document.createElement("thead");
+  const header = document.createElement("tr");
+  addCell(header, "Gün", "th");
+  addCell(header, "Vardiya", "th");
+  addCell(header, "Saat / durum", "th");
+  head.append(header);
+
+  const body = document.createElement("tbody");
+
+  for (let day = 1; day <= dayCount; day++) {
+    const date =
+      month.key + "-" + String(day).padStart(2, "0");
+
+    const code = person.s?.[day];
+    const onLeave = Boolean(
+      leave && date >= leave.start && date <= leave.end
+    );
+
+    const row = document.createElement("tr");
+    addCell(row, String(day));
+    addCell(row, code || "—");
+
+    let detail = code
+      ? month.shifts?.[code]?.t || "Saat bilgisi eksik"
+      : "Vardiya kaydı yok";
+
+    if (onLeave) {
+      detail = code
+        ? detail + " · İZİNLE ÇAKIŞMA — kontrol gerekli"
+        : "İzin";
+    }
+
+    addCell(row, detail);
+    body.append(row);
+  }
+
+  $("tablo").replaceChildren(head, body);
+  $("cizelge").hidden = false;
+}
+
+async function loadTest(job) {
+  clearSchedule();
+
+  const rows = await readRows(
+    "staff_schedule_tests" +
+    "?select=id,month_key,title,data,expires_at,created_at" +
+    "&target_user_id=eq." + encodeURIComponent(userId) +
+    "&expires_at=gt." + encodeURIComponent(new Date().toISOString()) +
+    "&order=created_at.desc,id.desc" +
+    "&limit=1"
+  );
+
+  if (job !== generation || !token) return;
+
+  if (!rows.length) {
+    $("sonuc").textContent =
+      "✓ Personel oturumu açık.\n" +
+      "Erişilebilir, süresi dolmamış test çizelgesi bulunamadı.\n" +
+      "Henüz oluşturulmamış, süresi dolmuş veya erişim kuralı " +
+      "nedeniyle görünmüyor olabilir.";
+    return;
+  }
+
+  showTest(rows[0]);
+
+  $("sonuc").textContent =
+    "✓ Test çizelgesi okundu.\n" +
+    "Bu ekran gerçek yayın tablosunu okumaz veya değiştirmez.";
+}
+
 $("form").onsubmit = async event => {
   event.preventDefault();
-
   if (busy) return;
 
   busy = true;
   $("giris").disabled = true;
-
   const job = generation;
   let attemptToken = null;
 
-  $("sonuc").textContent =
-    "Test personeli girişi kontrol ediliyor…";
+  $("sonuc").textContent = "Personel girişi kontrol ediliyor…";
 
   try {
     const response = await fetch(
@@ -204,7 +294,6 @@ $("form").onsubmit = async event => {
     );
 
     $("sifre").value = "";
-
     const session = await response.json();
     attemptToken = session.access_token || null;
 
@@ -213,87 +302,92 @@ $("form").onsubmit = async event => {
       return;
     }
 
-    if (!response.ok) {
-      throw new Error(
-        "Giriş başarısız. HTTP " + response.status +
-        "\nTest personeli e-postasını ve uygulama şifresini kontrol et."
-      );
-    }
-
-    if (!attemptToken || !session.user?.id) {
-      throw new Error("Oturum bilgisi alınamadı.");
+    if (!response.ok || !attemptToken || !session.user?.id) {
+      throw new Error("Giriş başarısız. Test hesabı bilgilerini kontrol et.");
     }
 
     token = attemptToken;
-
-    const userId = session.user.id;
+    userId = session.user.id;
+    expiresAt =
+      Date.now() + Number(session.expires_in || 3600) * 1000;
 
     const admins = await readRows(
       "app_admins?select=user_id&user_id=eq." +
-      encodeURIComponent(userId),
-      attemptToken
+      encodeURIComponent(userId)
     );
 
     if (job !== generation) return;
 
     if (admins.some(row => row.user_id === userId)) {
-      throw new Error(
-        "Bu hesapta yönetici kaydı görünüyor.\n" +
-        "Personel testi için yönetici olmayan test personeli " +
-        "hesabıyla giriş yap."
-      );
+      throw new Error("Bu ekrana yönetici değil, test personeli hesabıyla gir.");
     }
 
     const profiles = await readRows(
-      "staff_profiles" +
-      "?select=user_id,personnel_code,full_name,active" +
-      "&user_id=eq." + encodeURIComponent(userId),
-      attemptToken
+      "staff_profiles?select=user_id,personnel_code,active" +
+      "&user_id=eq." + encodeURIComponent(userId)
     );
 
     if (job !== generation) return;
 
-    const profile = profiles.find(
-      row => row.user_id === userId
+    const profile = profiles.find(row =>
+      row.user_id === userId &&
+      row.active === true &&
+      row.personnel_code === "TEST-4D769C60"
     );
 
     if (!profile) {
-      throw new Error(
-        "Hesap girişi başarılı ancak kendi personel profili okunamadı.\n" +
-        "Profil eksik olabilir veya erişim kuralları kaydı gizliyor olabilir."
-      );
-    }
-
-    if (profile.active !== true) {
-      throw new Error(
-        "Personel profili bulundu ancak aktif değil."
-      );
+      throw new Error("Aktif TEST-4D769C60 profili okunamadı.");
     }
 
     $("form").hidden = true;
-    $("cikis").hidden = false;
+    $("panel").hidden = false;
 
-    $("sonuc").textContent =
-      "✓ Personel hesabıyla giriş başarılı.\n" +
-      "✓ Bu sorguda yönetici kaydı dönmedi.\n" +
-      "✓ Kendi aktif personel profili okunabildi.\n\n" +
-      "Ad: " + profile.full_name + "\n" +
-      "Personel kodu: " + profile.personnel_code + "\n\n" +
-      "Bu adımda çizelge verisi okunmadı, değiştirilmedi veya yayınlanmadı.\n" +
-      "Bu sonuç tüm erişim kurallarının testi değildir.";
+    try {
+      await loadTest(job);
+    } catch (error) {
+      if (job === generation) {
+        clearSchedule();
+        $("sonuc").textContent =
+          "Profil kontrolü geçti; test çizelgesi okunamadı.\n" +
+          error.message;
+      }
+    }
   } catch (error) {
     if (job === generation) {
       const previous = token || attemptToken;
       token = null;
-
+      userId = null;
+      expiresAt = 0;
+      $("panel").hidden = true;
+      $("form").hidden = false;
+      clearSchedule();
       $("sonuc").textContent = error.message;
-
       await logoutToken(previous);
     }
   } finally {
     $("sifre").value = "";
     $("giris").disabled = false;
     busy = false;
+  }
+};
+
+$("yenile").onclick = async () => {
+  if (busy) return;
+  busy = true;
+  $("yenile").disabled = true;
+  const job = generation;
+
+  try {
+    $("sonuc").textContent = "Test çizelgesi okunuyor…";
+    await loadTest(job);
+  } catch (error) {
+    if (job === generation) {
+      clearSchedule();
+      $("sonuc").textContent = error.message;
+    }
+  } finally {
+    busy = false;
+    $("yenile").disabled = false;
   }
 };
 </script>
