@@ -39,7 +39,46 @@ function shiftText(row){return time(row.shift_start)+'–'+time(row.shift_end)+(
 function monthNav(){return `<div class="monthnav"><button class="ghost" data-month="-1" aria-label="Önceki ay">‹</button><strong>${esc(monthLabel(monthKey))}</strong><button class="ghost" data-month="1" aria-label="Sonraki ay">›</button></div>`}
 function bindNav(root){root.querySelectorAll('[data-month]').forEach(b=>b.onclick=()=>{const [y,m]=monthKey.split('-').map(Number);let next=new Date(y,m-1+Number(b.dataset.month),1);monthKey=monthOf(next);selectedDay=null;void loadMonth()})}
 async function loadProfile(){const {data,error}=await supabase.from('staff_profiles').select('user_id,full_name,active').eq('user_id',user.id).maybeSingle();if(error)throw error;if(!data || !data.active)throw new Error('Aktif personel profili bulunamadı. Yöneticiyle görüş.');profile=data}
-async function queryMonth(table,columns,key){const rows=[],size=500;for(let offset=0;offset<30000;offset+=size){const {data,error}=await supabase.from(table).select(columns).eq('month_key',key).order('person_key').order('day').range(offset,offset+size-1);if(error)throw error;rows.push(...data);if(data.length<size)return rows}throw new Error('Çok fazla satır var; çizelge eksik gösterilmedi.')}
+async function queryMonth(table, columns, key) {
+  const rows = [];
+  const size = 500;
+  const maximumRows = 30000;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .eq('month_key', key)
+      .order('person_key')
+      .order('day')
+      .range(offset, offset + size - 1);
+
+    if (error) throw error;
+
+    if (!Array.isArray(data)) {
+      throw new Error('Beklenmeyen çizelge yanıtı.');
+    }
+
+    // İstenen sayıdan az gelmesi değil,
+    // hiç kayıt gelmemesi listenin bittiğini gösterir.
+    if (data.length === 0) {
+      return rows;
+    }
+
+    rows.push(...data);
+
+    if (rows.length > maximumRows) {
+      throw new Error(
+        'Kayıt sınırı aşıldı; çizelge eksik gösterilmedi.'
+      );
+    }
+
+    // İstenen 500 kadar değil, gerçekten alınan
+    // kayıt sayısı kadar ilerle.
+    offset += data.length;
+  }
+}
 async function loadMonth(){const request=++loading;setMessage('Çizelge yükleniyor…');monthData=null;render();try{const rows=await queryMonth('published_roster_days','person_key,full_name,day,shift_code,shift_start,shift_end,is_leave',monthKey);if(request!==loading||!user)return;const people=new Map();for(const r of rows){if(!people.has(r.person_key))people.set(r.person_key,{key:r.person_key,name:r.full_name,days:new Map()});people.get(r.person_key).days.set(r.day,r)}monthData={people:[...people.values()],rows};if(rows.length===0)setMessage(monthLabel(monthKey)+' için yayınlanmış ortak çizelge yok.');else setMessage('');render()}catch(e){if(request!==loading)return;setMessage('Çizelge alınamadı: '+(e.message||'bağlantıyı kontrol et'),true);render()}}
 function myPerson(){if(!profile||!monthData)return null;const candidates=monthData.people.filter(p=>p.name.localeCompare(profile.full_name,'tr',{sensitivity:'base'})===0);return candidates.length===1?candidates[0]:null}
 function myRows(){const p=myPerson();return p?[...p.days.values()].sort((a,b)=>a.day-b.day):[]}
