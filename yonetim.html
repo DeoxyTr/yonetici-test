@@ -293,6 +293,506 @@ $("pdf").onchange = async event => {
     if (job===generation) {clearPreview();status("PDF önizlemesi tamamlanamadı:\n"+error.message+"\nDosyaları ve PDF biçimini kontrol et.");}
   } finally {$("pdf").value="";$("pdf").disabled=false;busy=false;}
 };
+  // TASLAK KAYIT EKLENTİSİ — sürüm 1
+// Bu blok mevcut <script type="module"> bölümünün içinde kalmalıdır.
+
+const draftTools = document.createElement("section");
+const draftHeading = document.createElement("h2");
+draftHeading.textContent = "Kaydedilmiş taslaklar";
+
+const draftHelp = document.createElement("p");
+draftHelp.className = "muted";
+draftHelp.textContent =
+  "Her kaydetme yeni bir taslak oluşturur. " +
+  "Yayınlanmış çizelgeler değiştirilmez. " +
+  "Liste son 50 taslağı gösterir.";
+
+const draftRefresh = document.createElement("button");
+draftRefresh.type = "button";
+draftRefresh.textContent = "Taslak listesini yenile";
+
+const draftSelect = document.createElement("select");
+draftSelect.setAttribute("aria-label", "Kaydedilmiş taslak seç");
+draftSelect.style.display = "block";
+draftSelect.style.width = "100%";
+draftSelect.style.margin = "12px 0";
+
+const draftOpen = document.createElement("button");
+draftOpen.type = "button";
+draftOpen.textContent = "Seçilen taslağı aç";
+
+const draftMessage = document.createElement("p");
+draftMessage.setAttribute("role", "status");
+draftMessage.style.whiteSpace = "pre-wrap";
+
+draftTools.append(
+  draftHeading,
+  draftHelp,
+  draftRefresh,
+  draftSelect,
+  draftOpen,
+  draftMessage
+);
+
+$("panel").append(draftTools);
+
+const draftSave = document.createElement("button");
+draftSave.type = "button";
+draftSave.textContent = "Taslak kaydet — yayınlamaz";
+draftSave.style.margin = "12px 0";
+
+const draftSaveHelp = document.createElement("p");
+draftSaveHelp.className = "muted";
+draftSaveHelp.textContent =
+  "Hesap eşleştirmeleri ve izin tarihleri bu düğmeyle saklanır. " +
+  "Eksik hesap eşleştirmesiyle taslak kaydedilebilir; " +
+  "bu işlem yayınlama onayı değildir.";
+
+$("onizleme").append(draftSave, draftSaveHelp);
+
+const mainNotice = document.querySelector("main > p.muted");
+
+if (mainNotice) {
+  mainNotice.textContent =
+    "Sürüm: otomatik izin + taslak kayıt 1. " +
+    "Taslak kaydedilebilir; bu ekran yayınlama yapmaz.";
+}
+
+const previewNotice = document.querySelector(
+  "#onizleme > p.muted"
+);
+
+if (previewNotice) {
+  previewNotice.textContent =
+    "Ekrandaki değişiklikler kendiliğinden kaydedilmez. " +
+    "Kalıcı kayıt için Taslak kaydet düğmesini kullan. " +
+    "Kaydedilmiş taslağı daha sonra PDF seçmeden açabilirsin. " +
+    "İsimler otomatik hesap eşleştirmesi yapmaz; " +
+    "izinleri ve vardiyaları orijinal PDF ile kontrol et. " +
+    "Bu sürüm kişi başına tek izin aralığı destekler.";
+}
+
+const previousLeaveSummary = refreshLeaveSummary;
+
+refreshLeaveSummary = function () {
+  previousLeaveSummary();
+
+  $("izinOzet").textContent =
+    $("izinOzet").textContent.replace(
+      "Henüz kaydedilmedi veya yayınlanmadı.",
+      "Ekrandaki değişiklikler için Taslak kaydet düğmesini kullan. " +
+      "Bu ekran yayınlama yapmaz."
+    );
+};
+
+function resetDraftList() {
+  draftSelect.replaceChildren();
+
+  const option = document.createElement("option");
+  option.value = "";
+  option.textContent = "Önce taslak listesini yenile";
+  draftSelect.append(option);
+
+  draftMessage.textContent = "";
+}
+
+resetDraftList();
+
+function draftSessionCheck() {
+  if (!token || Date.now() >= expiresAt) {
+    throw new Error(
+      "Oturum süresi doldu. Çıkış yapıp tekrar giriş yap."
+    );
+  }
+}
+
+function draftButtons(disabled) {
+  draftSave.disabled = disabled;
+  draftRefresh.disabled = disabled;
+  draftOpen.disabled = disabled;
+  draftSelect.disabled = disabled;
+}
+
+async function fetchDraftList(job) {
+  const rows = await readTable(
+    "schedule_drafts" +
+    "?select=id,month_key,title,created_at" +
+    "&order=created_at.desc,id.desc" +
+    "&limit=50"
+  );
+
+  if (job !== generation || !token) return;
+
+  if (!Array.isArray(rows)) {
+    throw new Error("Taslak listesi yanıtı geçersiz.");
+  }
+
+  draftSelect.replaceChildren();
+
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = rows.length
+    ? "Açmak istediğin taslağı seç"
+    : "Henüz kaydedilmiş taslak yok";
+
+  draftSelect.append(empty);
+
+  for (const row of rows) {
+    const option = document.createElement("option");
+    option.value = row.id;
+
+    const created = new Date(row.created_at);
+    const dateText = Number.isNaN(created.getTime())
+      ? row.created_at
+      : created.toLocaleString("tr-TR");
+
+    option.textContent =
+      row.title + " · " + dateText +
+      " · " + row.id.slice(0, 8);
+
+    draftSelect.append(option);
+  }
+
+  draftMessage.textContent =
+    rows.length + " taslak listelendi.";
+}
+
+draftRefresh.onclick = async () => {
+  if (busy) return;
+
+  const job = generation;
+
+  try {
+    draftSessionCheck();
+    busy = true;
+    draftButtons(true);
+
+    draftMessage.textContent = "Taslaklar okunuyor…";
+    await fetchDraftList(job);
+  } catch (error) {
+    if (job === generation) {
+      draftMessage.textContent = error.message;
+    }
+  } finally {
+    busy = false;
+    draftButtons(false);
+  }
+};
+
+function createDraftSnapshot() {
+  if (!draft || $("onizleme").hidden) {
+    throw new Error("Önce PDF seç veya kaydedilmiş bir taslak aç.");
+  }
+
+  const period = $("donem").value;
+
+  if (!monthBounds(period)) {
+    throw new Error("Geçerli bir çizelge ayı seç.");
+  }
+
+  if (period !== draft.result.month.key) {
+    throw new Error(
+      "Seçilen ay, PDF'den okunan ayla farklı. " +
+      "Bu sürümde kaydetmeden önce çizelge ayını PDF'nin ayına döndür."
+    );
+  }
+
+  if (
+    leaveEditors.length !== draft.people.length ||
+    !draft.people.length
+  ) {
+    throw new Error("Taslak satırları eksik; PDF'yi yeniden aç.");
+  }
+
+  for (const editor of leaveEditors) {
+    validateLeave(editor);
+  }
+
+  refreshLeaveSummary();
+
+  const invalid = leaveEditors.find(editor => editor.invalid);
+
+  if (invalid) {
+    throw new Error(
+      invalid.person.name +
+      ": eksik veya geçersiz izin tarihini düzelt."
+    );
+  }
+
+  const chosen = new Set();
+
+  for (const person of draft.people) {
+    if (!person.userId) continue;
+
+    if (!profiles.some(profile => profile.user_id === person.userId)) {
+      throw new Error(
+        person.name +
+        ": seçilen hesap aktif profil listesinde yok. " +
+        "Eşleştirmeyi düzelt veya boş bırak."
+      );
+    }
+
+    if (chosen.has(person.userId)) {
+      throw new Error(
+        "Aynı hesap birden fazla kişiye seçilmiş. " +
+        "Hesap eşleştirmelerini kontrol et."
+      );
+    }
+
+    chosen.add(person.userId);
+  }
+
+  return JSON.parse(JSON.stringify({
+    schemaVersion: 1,
+    period,
+    result: draft.result,
+    rows: draft.people.map((person, index) => ({
+      userId: person.userId || "",
+      start: leaveEditors[index].start.value,
+      end: leaveEditors[index].end.value,
+      origin: leaveEditors[index].origin || "manual"
+    }))
+  }));
+}
+
+draftSave.onclick = async () => {
+  if (busy) return;
+
+  const job = generation;
+  let writeStarted = false;
+  let saved = false;
+
+  try {
+    draftSessionCheck();
+
+    const snapshot = createDraftSnapshot();
+
+    const mapped = snapshot.rows.filter(row => row.userId).length;
+
+    const approved = window.confirm(
+      snapshot.result.month.title + " için yeni taslak kaydedilsin mi?\n\n" +
+      snapshot.rows.length + " kişi satırı\n" +
+      mapped + " hesap eşleştirmesi\n\n" +
+      "İsimler, vardiyalar, izin tarihleri ve eşleştirmeler " +
+      "Supabase taslak tablosuna gönderilecek.\n" +
+      "Bu işlem yayınlama yapmaz."
+    );
+
+    if (!approved) return;
+
+    draftSessionCheck();
+
+    busy = true;
+    draftButtons(true);
+
+    const requestToken = token;
+
+    draftMessage.textContent = "Taslak kaydediliyor…";
+    writeStarted = true;
+
+    const response = await fetch(
+      URL + "/rest/v1/schedule_drafts",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + requestToken,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({
+          month_key: snapshot.period,
+          title: snapshot.result.month.title,
+          data: snapshot
+        })
+      }
+    );
+
+    if (job !== generation || !token) return;
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+
+      throw new Error(
+        "Kayıt isteği başarısız. HTTP " + response.status +
+        (detail?.message ? "\n" + detail.message : "")
+      );
+    }
+
+    saved = true;
+
+    const rows = await response.json().catch(() => null);
+    const savedId = Array.isArray(rows) ? rows[0]?.id : null;
+
+    const successText =
+      "✓ Taslak kaydedildi. Yayınlanmadı." +
+      (savedId ? "\nTaslak kimliği: " + savedId : "");
+
+    status(successText);
+    draftMessage.textContent = successText;
+
+    try {
+      await fetchDraftList(job);
+
+      if (job !== generation || !token) return;
+
+      if (savedId) draftSelect.value = savedId;
+      draftMessage.textContent = successText;
+    } catch (error) {
+      if (job === generation) {
+        draftMessage.textContent =
+          successText +
+          "\nListe yenilenemedi: " + error.message +
+          "\nTekrar kaydetmek yerine listeyi yenile.";
+      }
+    }
+  } catch (error) {
+    if (job === generation) {
+      const prefix = saved
+        ? "Taslak kaydı tamamlandı ancak sonraki işlemde sorun oldu.\n"
+        : writeStarted
+          ? "Kayıt sonucu doğrulanamadı. Tekrar kaydetmeden önce " +
+            "taslak listesini yenileyip kontrol et.\n"
+          : "";
+
+      draftMessage.textContent = prefix + error.message;
+    }
+  } finally {
+    busy = false;
+    draftButtons(false);
+  }
+};
+
+function restoreDraft(snapshot) {
+  if (
+    snapshot?.schemaVersion !== 1 ||
+    !Array.isArray(snapshot.result?.month?.people) ||
+    !Array.isArray(snapshot.rows) ||
+    snapshot.rows.length !== snapshot.result.month.people.length ||
+    snapshot.period !== snapshot.result.month.key ||
+    !monthBounds(snapshot.period)
+  ) {
+    throw new Error("Bu taslağın biçimi desteklenmiyor veya verisi eksik.");
+  }
+
+  for (const row of snapshot.rows) {
+    if (
+      typeof row.userId !== "string" ||
+      typeof row.start !== "string" ||
+      typeof row.end !== "string" ||
+      !["manual", "pdf-yellow"].includes(row.origin)
+    ) {
+      throw new Error("Taslak satır bilgisi geçersiz.");
+    }
+  }
+
+  preview(snapshot.result);
+
+  $("donem").value = snapshot.period;
+  $("donem").dispatchEvent(new Event("input"));
+
+  const tableRows = $("tablo").querySelectorAll("tbody tr");
+
+  snapshot.rows.forEach((savedRow, index) => {
+    const person = draft.people[index];
+    const editor = leaveEditors[index];
+    const select = tableRows[index].querySelector("select");
+
+    if (
+      savedRow.userId &&
+      !profiles.some(profile => profile.user_id === savedRow.userId)
+    ) {
+      const missing = document.createElement("option");
+      missing.value = savedRow.userId;
+      missing.textContent =
+        "Önceki hesap aktif listede yok — eşleştirmeyi kontrol et";
+      select.append(missing);
+    }
+
+    select.value = savedRow.userId;
+    person.userId = savedRow.userId;
+
+    editor.start.value = savedRow.start;
+    editor.end.value = savedRow.end;
+    editor.origin = savedRow.origin;
+
+    validateLeave(editor);
+  });
+
+  refreshLeaveSummary();
+}
+
+draftOpen.onclick = async () => {
+  if (busy) return;
+
+  const id = draftSelect.value;
+  const job = generation;
+
+  try {
+    draftSessionCheck();
+
+    if (!id) {
+      throw new Error("Önce listeden bir taslak seç.");
+    }
+
+    if (
+      draft &&
+      !window.confirm(
+        "Seçilen taslak açılsın mı?\n" +
+        "Ekrandaki kaydedilmemiş değişiklikler kaldırılacak."
+      )
+    ) {
+      return;
+    }
+
+    busy = true;
+    draftButtons(true);
+    draftMessage.textContent = "Taslak açılıyor…";
+
+    const rows = await readTable(
+      "schedule_drafts?select=id,month_key,title,data,created_at" +
+      "&id=eq." + encodeURIComponent(id) +
+      "&limit=1"
+    );
+
+    if (job !== generation || !token) return;
+
+    if (!Array.isArray(rows) || rows.length !== 1) {
+      throw new Error("Taslak bulunamadı veya bu kayda erişilemiyor.");
+    }
+
+    if (rows[0].month_key !== rows[0].data?.period) {
+      throw new Error("Taslağın ay bilgileri birbiriyle uyuşmuyor.");
+    }
+
+    restoreDraft(rows[0].data);
+
+    draftMessage.textContent =
+      "✓ Taslak açıldı. PDF'yi yeniden seçmen gerekmedi.\n" +
+      "Yeni değişiklikleri saklamak için yeniden Taslak kaydet'e bas.";
+
+    status(
+      "✓ Kaydedilmiş taslak açıldı.\n" +
+      "Bu işlem yayınlama yapmadı."
+    );
+  } catch (error) {
+    if (job === generation) {
+      draftMessage.textContent = error.message;
+    }
+  } finally {
+    busy = false;
+    draftButtons(false);
+  }
+};
+
+new MutationObserver(() => {
+  if ($("panel").hidden) resetDraftList();
+}).observe($("panel"), {
+  attributes: true,
+  attributeFilter: ["hidden"]
+});
+
+// TASLAK KAYIT EKLENTİSİ SONU
 </script>
 </body>
 </html>
