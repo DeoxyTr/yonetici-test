@@ -103,8 +103,7 @@ function findDayHeader(items) {
 
 function readShiftTimes(items, shifts, warnings, pageNumber) {
   for (const item of items) {
-    const pattern =
-          const pattern =
+    const pattern 
       /(V\d+)\s*:\s*(?:SABAH|AKŞAM)?\s*(\d{1,2})[:.](\d{2})\s*(?:[-–—]\s*)?(?:SABAH|AKŞAM)?\s*(\d{1,2})[:.](\d{2})/gi;
 
     for (const match of item.s.matchAll(pattern)) {
