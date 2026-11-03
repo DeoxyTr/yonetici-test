@@ -1,107 +1,10 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f1b2d"><meta name="robots" content="noindex"><title>TTK Nöbet · Yerleşke ve Badi</title><style>
-:root{
-  --bg:#0f1b2d; --bg2:#16253b; --card:#1b2c45; --line:#2a3f5e;
-  --tx:#eef2f7; --mut:#9fb0c6; --acc:#f2b33d;
-  --v1:#4fb3d9; --v2:#f2b33d; --v3:#8b7cf6; --izin:#e5d24a; --off:#26384f;
-  --r:14px;
-  font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{background:var(--bg);color:var(--tx);min-height:100%}
-body{padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-.wrap{max-width:560px;margin:0 auto;padding:16px 16px 8px}
-header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;max-width:560px;margin:0 auto}
-.logo{width:42px;height:42px;background:#fff;border-radius:10px;padding:3px;flex:none}
-.ico{width:14px;height:14px;vertical-align:-2px;margin-right:3px}
-.badge .ico{width:12px;height:12px;margin-right:3px;vertical-align:-1px}
-.day .ico{width:13px;height:13px;margin:0}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom));background:var(--acc);color:#0f1b2d;font-weight:700;padding:10px 16px;border-radius:12px;z-index:20;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:90vw;text-align:center}
-.brand{font-size:13px;color:var(--mut);letter-spacing:.04em;text-transform:uppercase}
-.who{font-size:20px;font-weight:700;line-height:1.2}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px;color:var(--mut)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
-.hero{background:linear-gradient(135deg,#1f3555,#1b2c45);}
-.lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
-.big{font-size:26px;font-weight:800;line-height:1.15}
-.sub{color:var(--mut);font-size:14px;margin-top:6px;line-height:1.45}
-.badge{display:inline-block;min-width:34px;text-align:center;padding:3px 8px;border-radius:7px;font-weight:700;font-size:13px;color:#0f1b2d}
-.b-V1{background:var(--v1)} .b-V2{background:var(--v2)} .b-V3{background:var(--v3);color:#fff} .b-izin{background:var(--izin)} .b-off{background:var(--off);color:var(--mut)}
-.count{margin-top:12px;font-size:14px;color:var(--acc);font-weight:600}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.stat{background:var(--bg2);border-radius:10px;padding:10px 6px;text-align:center}
-.stat b{display:block;font-size:20px}
-.stat span{font-size:11px;color:var(--mut)}
-.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-.dow{font-size:11px;color:var(--mut);text-align:center;padding-bottom:2px}
-.day{aspect-ratio:1/1.12;border-radius:9px;background:var(--bg2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;position:relative;border:1px solid transparent}
-.day small{font-size:10px;font-weight:700}
-.day.V1{background:rgba(79,179,217,.22);color:#bfe7f6}.day.V1 small{color:var(--v1)}
-.day.V2{background:rgba(242,179,61,.22);color:#ffe3ad}.day.V2 small{color:var(--v2)}
-.day.V3{background:rgba(139,124,246,.28);color:#ddd7ff}.day.V3 small{color:#b7adff}
-.day.izin{background:rgba(229,210,74,.16);color:#f1e79a}.day.izin small{color:var(--izin)}
-.day.today{border-color:var(--tx)}
-.day.sel{outline:2px solid var(--acc);outline-offset:1px}
-.day.empty{background:none}
-.legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:12px;font-size:12px;color:var(--mut)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.list .row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid var(--line);gap:10px}
-.list .row:first-child{border-top:0}
-.row .n{font-weight:600}
-.row .t{font-size:12px;color:var(--mut);margin-top:2px}
-.me{color:var(--acc)}
-.daynav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
-.daynav .d{text-align:center}
-.daynav .d b{display:block;font-size:18px}
-.daynav .d span{font-size:13px;color:var(--mut)}
-.navbtn{width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:20px}
-.loc{font-size:13px;font-weight:700;color:var(--acc);margin:4px 0 6px}
-.grp{margin-bottom:10px}
-.tabs{position:fixed;left:0;right:0;bottom:0;background:#0b1524;border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:5}
-.tabs div{display:flex;max-width:560px;width:100%}
-.tabs button{flex:1;padding:10px 0 12px;font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:4px}
-.tabs button svg{width:22px;height:22px}
-.tabs button.on{color:var(--acc)}
-.tbl-wrap{overflow:auto;border-radius:var(--r);border:1px solid var(--line);max-height:calc(100vh - 210px)}
-table{border-collapse:separate;border-spacing:0;font-size:12px;background:var(--card)}
-th,td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line);min-width:34px;white-space:nowrap}
-th{position:sticky;top:0;background:#0b1524;z-index:2;font-weight:600;color:var(--mut)}
-th.we{color:#f08a8a}
-td.nm,th.nm{position:sticky;left:0;text-align:left;min-width:120px;padding-left:10px;background:#13223a;z-index:1;font-weight:600}
-th.nm{z-index:3;background:#0b1524}
-tr.me td.nm{color:var(--acc)}
-tr.me td{background:#223555}
-td.today,th.today{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
-td .badge{min-width:26px;padding:2px 4px;font-size:11px}
-td.iz{background:rgba(229,210,74,.18);color:#f1e79a;font-size:10px}
-tr.sep td{background:#0b1524;color:var(--acc);text-align:left;font-weight:700;padding:6px 0}
-tr.sep td span{position:sticky;left:10px;padding-left:10px}
-.pick{position:fixed;inset:0;background:var(--bg);z-index:10;overflow:auto;padding:calc(20px + env(safe-area-inset-top)) 16px 30px}
-.pick h1{font-size:24px;margin-bottom:6px}
-.pick p{color:var(--mut);margin-bottom:18px;font-size:14px}
-.pick .opt{display:flex;width:100%;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;text-align:left;font-weight:600}
-.pick .opt:active,.pick .opt.cur{border-color:var(--acc)}
-.pick .opt span{font-size:12px;color:var(--mut);font-weight:400}
-.hidden{display:none!important}
-.foot{font-size:12px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.6}
-.btn{display:inline-block;padding:10px 14px;border-radius:10px;background:var(--acc);color:#0f1b2d;font-weight:700}
-.btn.ghost{background:var(--card);color:var(--tx);border:1px solid var(--line)}
-
-[hidden]{display:none!important}.auth{max-width:440px;margin:36px auto;padding:20px}.auth input[type=text],.auth input[type=password]{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--tx);padding:13px;margin:6px 0 16px;font:inherit}.auth label{display:block;color:var(--mut);font-size:14px}.auth .remember{display:flex;align-items:center;gap:8px;margin:6px 0 16px}.auth .btn{width:100%;font:inherit}.status{white-space:pre-wrap;color:var(--mut);font-size:14px;line-height:1.5;margin:10px 0}.error{color:#ffb2b2}.site{display:block;font-size:12px;color:var(--mut);font-weight:400;line-height:1.5;margin-top:3px}.group-title{font-size:16px;color:var(--acc);padding:8px 0;margin:4px 0}.buddy{border-left:3px solid var(--acc)}.row-label{display:block}.month-title{font-weight:700}.table-info{display:block;font-size:10px;color:var(--mut);margin-top:4px}input[type=date]{background:var(--bg2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px;font:inherit}.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.b-generic{background:#98acbf}.toolbar{display:flex;gap:8px;align-items:center}.notice{font-size:12px;color:var(--mut);line-height:1.5}button:disabled{opacity:.5;cursor:default}caption{text-align:left;padding:10px;color:var(--mut)}
+:root{--bg:#0f1b2d;--bg2:#16253b;--card:#1b2c45;--line:#2a3f5e;--tx:#eef2f7;--mut:#9fb0c6;--acc:#f2b33d;--v1:#4fb3d9;--v2:#f2b33d;--v3:#8b7cf6;--izin:#e5d24a;--off:#26384f;--r:14px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}html,body{background:var(--bg);color:var(--tx);min-height:100%}body{padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}button:disabled{opacity:.5;cursor:default}[hidden],.hidden{display:none!important}.wrap{max-width:560px;margin:0 auto;padding:16px 16px 8px}header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;max-width:560px;margin:0 auto}.brand{font-size:13px;color:var(--mut);letter-spacing:.04em;text-transform:uppercase}.who{font-size:20px;font-weight:700;line-height:1.2}.toolbar{display:flex;gap:8px;align-items:center}.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px;color:var(--mut)}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}.hero{background:linear-gradient(135deg,#1f3555,#1b2c45)}.lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}.big{font-size:26px;font-weight:800;line-height:1.15}.sub{color:var(--mut);font-size:14px;margin-top:6px;line-height:1.45}.badge{display:inline-block;min-width:34px;text-align:center;padding:3px 8px;border-radius:7px;font-weight:700;font-size:13px;color:#0f1b2d}.b-V1{background:var(--v1)}.b-V2{background:var(--v2)}.b-V3{background:var(--v3);color:#fff}.b-izin{background:var(--izin)}.b-generic{background:#98acbf}.count{margin-top:12px;font-size:14px;color:var(--acc);font-weight:600}.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:var(--bg2);border-radius:10px;padding:10px 6px;text-align:center}.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--mut)}.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.month-title{font-weight:700}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.dow{font-size:11px;color:var(--mut);text-align:center;padding-bottom:2px}.day{aspect-ratio:1/1.12;border-radius:9px;background:var(--bg2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;border:1px solid transparent}.day small{font-size:10px;font-weight:700}.day.V1{background:rgba(79,179,217,.22);color:#bfe7f6}.day.V2{background:rgba(242,179,61,.22);color:#ffe3ad}.day.V3{background:rgba(139,124,246,.28);color:#ddd7ff}.day.izin{background:rgba(229,210,74,.16);color:#f1e79a}.day.today{border-color:var(--tx)}.day.sel{outline:2px solid var(--acc);outline-offset:1px}.day.empty{background:none}.list .row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid var(--line);gap:10px}.list .row:first-child{border-top:0}.row .n{font-weight:600}.row .t{font-size:12px;color:var(--mut);margin-top:2px}.daynav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}.navbtn{width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:20px}.tabs{position:fixed;left:0;right:0;bottom:0;background:#0b1524;border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:5}.tabs div{display:flex;max-width:560px;width:100%}.tabs button{flex:1;padding:10px 0 12px;font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:4px}.tabs button.on{color:var(--acc)}.tbl-wrap{overflow:auto;border-radius:var(--r);border:1px solid var(--line);max-height:calc(100vh - 210px)}table{border-collapse:separate;border-spacing:0;font-size:12px;background:var(--card)}th,td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line);min-width:34px;white-space:nowrap}th{position:sticky;top:0;background:#0b1524;z-index:2;font-weight:600;color:var(--mut)}th.we{color:#f08a8a}td.nm,th.nm{position:sticky;left:0;text-align:left;min-width:120px;padding-left:10px;background:#13223a;z-index:1;font-weight:600}th.nm{z-index:3;background:#0b1524}tr.me td.nm,tr.me th.nm{color:var(--acc)}td.today,th.today{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}td .badge{min-width:26px;padding:2px 4px;font-size:11px}td.iz{background:rgba(229,210,74,.18);color:#f1e79a;font-size:10px}tr.sep td{background:#0b1524;color:var(--acc);text-align:left;font-weight:700;padding:6px 0}tr.sep td span{position:sticky;left:10px;padding-left:10px}.foot{font-size:12px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.6}.btn{display:inline-block;padding:10px 14px;border-radius:10px;background:var(--acc);color:#0f1b2d;font-weight:700}.auth{max-width:440px;margin:36px auto;padding:20px}.auth input[type=text],.auth input[type=password]{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--tx);padding:13px;margin:6px 0 16px;font:inherit}.auth label{display:block;color:var(--mut);font-size:14px}.auth .remember{display:flex;align-items:center;gap:8px;margin:6px 0 16px}.auth .btn{width:100%;font:inherit}.status{white-space:pre-wrap;color:var(--mut);font-size:14px;line-height:1.5;margin:10px 0}.error{color:#ffb2b2}.site{display:block;font-size:12px;color:var(--mut);font-weight:400;line-height:1.5;margin-top:3px}.buddy{border-left:3px solid var(--acc)}.table-info{display:block;font-size:10px;color:var(--mut);margin-top:4px}input[type=date]{background:var(--bg2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px;font:inherit}.notice{font-size:12px;color:var(--mut);line-height:1.5}caption{text-align:left;padding:10px;color:var(--mut)}.external-note{border-left:3px solid var(--acc);padding:10px 12px;background:var(--bg2);border-radius:8px;line-height:1.6;color:var(--tx);font-size:13px;margin-top:8px}.external-table{text-align:left;vertical-align:middle;white-space:normal;background:rgba(242,179,61,.06)}.external-table>div{position:sticky;left:155px;width:min(310px,65vw);padding:10px;line-height:1.6}.external-tag{color:var(--acc);font-size:12px;display:block;margin-top:5px}
 </style></head><body>
-<section id="loginPanel" class="auth"><div class="brand">TTK · NÖBET ÇİZELGESİ</div><h1 style="margin:12px 0">Hoş geldin</h1><p class="sub">Nöbetlerin, görev yerin ve badin tek ekranda.</p><form id="loginForm" style="margin-top:20px"><label for="email">Kullanıcı adı</label>
-<input
-  id="email"
-  type="text"
-  autocomplete="username"
-  autocapitalize="none"
-  spellcheck="false"
-  placeholder="Örnek: demet.olgun"
-  required
-><label for="password">Uygulama şifresi</label><input id="password" type="password" autocomplete="current-password" required><label class="remember"><input id="remember" type="checkbox" checked> Bu cihazda beni hatırla</label><button id="loginButton" class="btn" type="submit">Giriş yap</button></form><p id="authMessage" class="status" role="status"></p><p class="notice">Paylaşılan cihazda “Beni hatırla”yı kapat. Bu sayfa şifreni saklamaz; seçiliyse oturum anahtarları bu tarayıcıda tutulur.</p></section>
-<div id="app" hidden><header class="top"><div><div class="brand">TTK · NÖBET ÇİZELGESİ</div><div id="who" class="who"></div><span id="siteLabel" class="site"></span></div><div class="toolbar"><button id="refresh" class="chip" type="button">Yenile</button><button id="logout" class="chip" type="button">Çıkış</button></div></header><main class="wrap"><p id="notice" class="status" role="status"></p><section id="me"></section><section id="day" hidden></section><section id="all" hidden></section><p class="foot">Sürüm: yerleşke-badi-1 · Yalnızca yayınlanmış çizelge</p></main><nav class="tabs"><div><button type="button" data-view="me" class="on">☀ Nöbetlerim</button><button type="button" data-view="day">◷ Bugün kim var</button><button type="button" data-view="all">▦ Tüm çizelge</button></div></nav></div>
+<section id="loginPanel" class="auth"><div class="brand">TTK · NÖBET ÇİZELGESİ</div><h1 style="margin:12px 0">Hoş geldin</h1><p class="sub">Nöbetlerin, görev yerin ve badin tek ekranda.</p><form id="loginForm" style="margin-top:20px"><label for="email">Kullanıcı adı</label><input id="email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Örnek: demet.olgun" required><label for="password">Uygulama şifresi</label><input id="password" type="password" autocomplete="current-password" required><label class="remember"><input id="remember" type="checkbox" checked> Bu cihazda beni hatırla</label><button id="loginButton" class="btn" type="submit">Giriş yap</button></form><p id="authMessage" class="status" role="status"></p><p class="notice">Paylaşılan cihazda “Beni hatırla”yı kapat. Bu sayfa şifreni saklamaz; seçiliyse oturum anahtarları bu tarayıcıda tutulur.</p></section>
+<div id="app" hidden><header class="top"><div><div class="brand">TTK · NÖBET ÇİZELGESİ</div><div id="who" class="who"></div><span id="siteLabel" class="site"></span></div><div class="toolbar"><button id="refresh" class="chip" type="button">Yenile</button><button id="logout" class="chip" type="button">Çıkış</button></div></header><main class="wrap"><p id="notice" class="status" role="status"></p><section id="me"></section><section id="day" hidden></section><section id="all" hidden></section><p class="foot">Sürüm: yerleske-badi-2 · Yeni Yerleşke açıklamalı · Yalnızca yayınlanmış çizelge</p></main><nav class="tabs"><div><button type="button" data-view="me" class="on">☀ Nöbetlerim</button><button type="button" data-view="day">◷ Bugün kim var</button><button type="button" data-view="all">▦ Tüm çizelge</button></div></nav></div>
 <script type="module">
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 const BASE='https://rtqtildfytvyyrygcgyt.supabase.co';
@@ -110,12 +13,14 @@ const STORAGE='ttk-staff-session-v1';
 const $=id=>document.getElementById(id);
 const sites=['Sıhhiye Merkez','Sincan Matbaa','Kızılay','Yeni Yerleşke'];
 const MON=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const EXTERNAL_SITE='Yeni Yerleşke';
+const EXTERNAL_NOTE='Nöbet planlaması Yeni Yerleşke tarafından yapılmaktadır. Bu ekranda nöbet bilgileri gösterilmez.';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function readStore(store){try{return store.getItem(STORAGE)}catch(_){return null}}
 let remember=Boolean(readStore(localStorage));
 const storage={
- getItem(k){try{return sessionStorage.getItem(k)||localStorage.getItem(k)}catch(_){return null}},
- setItem(k,v){const yes=remember?localStorage:sessionStorage,no=remember?sessionStorage:localStorage;yes.setItem(k,v);no.removeItem(k)},
+ getItem(k){for(const store of [sessionStorage,localStorage]){try{const value=store.getItem(k);if(value)return value}catch(_){}}return null},
+ setItem(k,v){const yes=remember?localStorage:sessionStorage,no=remember?sessionStorage:localStorage;yes.setItem(k,v);try{no.removeItem(k)}catch(_){}},
  removeItem(k){for(const store of [localStorage,sessionStorage])try{store.removeItem(k)}catch(_){}}
 };
 const api=createClient(BASE,KEY,{auth:{storageKey:STORAGE,storage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
@@ -135,125 +40,77 @@ function badge(r){return r?.is_leave?'<span class="badge b-izin">İzin</span>':r
 function textStatus(r){return r?.is_leave?'İzin':r?.shift_code?r.shift_code+' · '+timeLabel(r):'Çizelgede nöbet veya izin belirtilmemiş'}
 function card(title,body,cls=''){return `<div class="card ${cls}"><div class="lbl">${esc(title)}</div>${body}</div>`}
 function notice(t,error=false){$('notice').textContent=t;$('notice').classList.toggle('error',error)}
-function siteOf(p){return p.location||'Yerleşke belirtilmemiş'}
+function siteOf(p){return p?.location||'Yerleşke belirtilmemiş'}
+function isExternal(p){return siteOf(p)===EXTERNAL_SITE}
+function externalNote(){return `<div class="external-note">${esc(EXTERNAL_NOTE)}</div>`}
 function sortPeople(a,b){const ai=sites.indexOf(siteOf(a)),bi=sites.indexOf(siteOf(b));return (ai<0?99:ai)-(bi<0?99:bi)||(a.order??9999)-(b.order??9999)||a.inputOrder-b.inputOrder}
 function groups(){const out=[];for(const p of [...people].sort(sortPeople)){const name=siteOf(p);let group=out.find(g=>g.name===name);if(!group){group={name,people:[]};out.push(group)}group.people.push(p)}return out}
-function mine() {
-  const personKey = profile?.roster_person_key;
-
-  if (!personKey) {
-    return null;
-  }
-
-  return people.find(
-    person => person.key === personKey
-  ) || null;
-}
+function mine(){const k=profile?.roster_person_key;return k?people.find(p=>p.key===k)||null:null}
 function personByKey(k){return people.find(p=>p.key===k)}
-function nav(){return `<div class="cal-head"><button type="button" class="chip" data-month="-1">‹</button><div class="month-title">${esc(label(month))}</div><button type="button" class="chip" data-month="1">›</button></div>`}
+function nav(){return `<div class="cal-head"><button type="button" class="chip" data-month="-1" aria-label="Önceki ay">‹</button><div class="month-title">${esc(label(month))}</div><button type="button" class="chip" data-month="1" aria-label="Sonraki ay">›</button></div>`}
 function bindNav(root){root.querySelectorAll('[data-month]').forEach(b=>b.onclick=()=>{const [y,m]=month.split('-').map(Number);month=keyOf(new Date(y,m-1+Number(b.dataset.month),1));selected=null;void load()})}
-function clear(){epoch++;user=null;profile=null;people=[];loaded=false;$('app').hidden=true;$('loginPanel').hidden=false;for(const k of ['me','day','all'])$(k).replaceChildren();$('who').textContent='';$('siteLabel').textContent=''}
+function clear(){epoch++;user=null;profile=null;people=[];loaded=false;$('app').hidden=true;$('loginPanel').hidden=false;for(const k of ['me','day','all'])$(k).replaceChildren();$('who').textContent='';$('siteLabel').textContent='';$('notice').textContent=''}
 async function getRows(k){const rows=[];let offset=0;while(true){const {data,error}=await api.from('published_roster_days').select('person_key,full_name,day,shift_code,shift_start,shift_end,is_leave,location,display_order,buddy_key').eq('month_key',k).order('person_key').order('day').range(offset,offset+499);if(error)throw error;if(!Array.isArray(data))throw new Error('Beklenmeyen yanıt.');if(!data.length)return rows;rows.push(...data);offset+=data.length;if(rows.length>30000)throw new Error('Kayıt sınırı aşıldı; eksik liste gösterilmedi.')}}
-async function checkProfile(){const {data,error}=await api.from('staff_profiles').select('user_id,full_name,active,roster_person_key').eq('user_id',user.id).maybeSingle();if(error)throw error;if(!data?.active)throw new Error('Aktif personel profili bulunamadı.');profile=data}
-async function load(){const job=++epoch;loaded=false;people=[];notice('Çizelge yükleniyor…');render();try{await checkProfile();const rows=await getRows(month);if(job!==epoch||!user)return;const map=new Map();for(const r of rows){if(!map.has(r.person_key))map.set(r.person_key,{key:r.person_key,name:r.full_name,location:r.location,order:r.display_order,buddy:r.buddy_key,inputOrder:map.size,days:new Map()});map.get(r.person_key).days.set(r.day,r)}people=[...map.values()];loaded=true;notice(rows.length?'':label(month)+' için ortak yayın bulunamadı.');render()}catch(e){if(job!==epoch)return;notice('Çizelge alınamadı: '+e.message,true);render()}}
-function nextShift(p){if(month!==keyOf(new Date()))return null;const now=new Date(),arr=[];for(const r of p.days.values()){if(!r.shift_code)continue;const st=at(month,r.day),en=at(month,r.day),[h,m]=time(r.shift_start).split(':').map(Number),[eh,em]=time(r.shift_end).split(':').map(Number);st.setHours(h,m,0,0);en.setHours(eh,em,0,0);if(en<=st)en.setDate(en.getDate()+1);if(en>now)arr.push({r,st,en})}return arr.sort((a,b)=>a.st-b.st)[0]||null}
-function buddyCard(p,d){if(!p.buddy)return '';const b=personByKey(p.buddy);if(!b)return card('Badin','<p class="sub">Badinin bu ayki ortak yayın kaydı bulunamadı.</p>','buddy');const r=b.days.get(d),my=p.days.get(d),same=Boolean(r?.shift_code&&r.shift_code===my?.shift_code&&siteOf(b)===siteOf(p));return card('Badin',`<strong>${esc(b.name)}</strong><span class="site">${esc(siteOf(b))}</span><p class="sub">${d} ${esc(label(month))}: ${badge(r)} ${esc(r?.shift_code?timeLabel(r):textStatus(r))}</p>${same?'<div class="count">Aynı yerleşkede, aynı vardiyadasınız.</div>':''}`,'buddy')}
-function renderMe(){const root=$('me'),p=mine();$('who').textContent=profile?.full_name||'Personel';$('siteLabel').textContent=p?siteOf(p):'';if(!loaded){root.innerHTML=card('Nöbetlerim',nav()+'<p class="sub">Çizelge yükleniyor veya veri alınamadı.</p>');bindNav(root);return}if(!p){root.innerHTML=card('Nöbetlerim',nav()+'<p class="sub">Bu ay hesabın adıyla eşleşen tek bir kayıt bulunamadı. Tüm çizelgeyi görüntüleyebilirsin; otomatik kişi eşleştirmesi için yöneticiyle görüş.</p>');bindNav(root);return}const next=nextShift(p);let content='';if(next){const active=next.st<=new Date(),mins=Math.max(0,Math.ceil(((active?next.en:next.st)-new Date())/60000));content=card(active?'Şu an nöbettesin':'Gösterilen ayda sıradaki nöbetin',`<div class="big">${badge(next.r)} ${next.r.day} ${esc(label(month))}</div><div class="sub">${esc(timeLabel(next.r))}<span class="site">${esc(siteOf(p))}</span></div><div class="count">${active?'Bitmesine':'Başlamasına'} yaklaşık ${Math.floor(mins/1440)} gün ${Math.floor(mins%1440/60)} saat ${mins%60} dakika</div>`,'hero')}else content=card('Sıradaki nöbetin','<p class="sub">Gösterilen ayda yaklaşan nöbet yok. Diğer ayları ay oklarından inceleyebilirsin.</p>','hero');const rows=[...p.days.values()],shifts=rows.filter(r=>r.shift_code);content+=card('Ay özeti',`<div class="stats3"><div class="stat"><b>${shifts.length}</b><span>Nöbet</span></div><div class="stat"><b>${Math.round(shifts.reduce((s,r)=>s+hours(r),0)*100)/100}</b><span>Saat</span></div><div class="stat"><b>${rows.filter(r=>r.is_leave).length}</b><span>İzin günü</span></div></div>`);const detailDay=selected||(month===keyOf(new Date())?new Date().getDate():1);content+=buddyCard(p,detailDay);content+='<div class="card">'+nav()+'<div class="calendar cal">';for(const w of ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'])content+=`<div class="dow">${w}</div>`;for(let i=0;i<(at(month,1).getDay()+6)%7;i++)content+='<div class="day empty"></div>';for(let d=1;d<=dim(month);d++){const r=p.days.get(d),cls=r?.is_leave?'izin':['V1','V2','V3'].includes(r?.shift_code)?r.shift_code:'';content+=`<button class="day ${cls} ${dayKey(at(month,d))===dayKey(new Date())?'today':''} ${selected===d?'sel':''}" data-day="${d}">${d}<small>${r?.is_leave?'İzin':r?.shift_code?esc(icon(r)+' '+r.shift_code):''}</small></button>`}content+='</div>';if(selected){const r=p.days.get(selected),same=people.filter(x=>
-  x.key !== p.key &&
-  siteOf(x) === siteOf(p) &&
-  x.days.get(selected)?.shift_code
-);content+=`<p class="sub">${selected} ${esc(label(month))}: ${esc(textStatus(r))}</p>${same.length ? `
-  <div class="sub">
-    Aynı yerleşkede bugün nöbeti olanlar:
-    <div class="list">
-      ${same.map(x => {
-        const duty = x.days.get(selected);
-        return `
-          <div class="row">
-            <div>
-              <div class="n">${esc(x.name)}</div>
-              <div class="t">
-                ${esc(duty.shift_code)} · ${esc(timeLabel(duty))}
-              </div>
-            </div>
-            ${badge(duty)}
-          </div>
-        `;
-      }).join('')}
-    </div>
-  </div>
-` : ''}`}content+='</div>';root.innerHTML=content;bindNav(root);root.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{selected=selected===Number(b.dataset.day)?null:Number(b.dataset.day);renderMe()})}
-function renderDay(){const root=$('day');let h=card('Bugün kim var',`<div class="daynav"><button class="navbtn" id="previousDay">‹</button><input aria-label="Gün seç" id="dayInput" type="date" value="${esc(day)}"><button class="navbtn" id="nextDay">›</button></div><p class="notice">Seçilen takvim gününün bütün vardiyaları gösterilir; yalnızca şu an görevde olanlar değildir.</p>`);if(day.slice(0,7)!==month)h+=card('Farklı ay','<button class="chip" id="dayMonth">Bu tarihin ayını yükle</button>');else if(loaded){const d=Number(day.slice(8));for(const group of groups()){const assigned=group.people.filter(p=>p.days.get(d)?.shift_code),leave=group.people.filter(p=>p.days.get(d)?.is_leave);let list=assigned.map(p=>{const r=p.days.get(d);return `<div class="row"><div><div class="n">${esc(p.name)}</div><div class="t">${esc(timeLabel(r))}</div></div>${badge(r)}</div>`}).join('');if(!assigned.length)list='<p class="sub">Bu gün için yayınlanmış vardiya yok.</p>';list+=leave.map(p=>`<div class="row"><div class="n">${esc(p.name)}</div><span class="badge b-izin">İzin</span></div>`).join('');h+=card(group.name,'<div class="list">'+list+'</div>')}}root.innerHTML=h;root.querySelector('#dayInput').onchange=e=>{if(e.target.value){day=e.target.value;renderDay()}};for(const [id,delta]of [['previousDay',-1],['nextDay',1]])root.querySelector('#'+id).onclick=()=>{const [y,m,d]=day.split('-').map(Number);day=dayKey(new Date(y,m-1,d+delta));renderDay()};const b=root.querySelector('#dayMonth');if(b)b.onclick=()=>{month=day.slice(0,7);selected=null;void load()}}
-function renderAll(){const root=$('all');let h='<div class="card">'+nav()+`<p class="notice">${people.length} kişi · Yerleşke ve PDF sırası · Yalnızca görüntüleme</p>`;if(loaded){h+='<div class="tbl-wrap"><table><caption>'+esc(label(month))+'</caption><thead><tr><th class="nm">Ad Soyad / Yerleşke</th>';for(let d=1;d<=dim(month);d++)h+=`<th>${d}<br>${['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][at(month,d).getDay()]}</th>`;h+='</tr></thead><tbody>';for(const group of groups()){h+=`<tr class="sep"><td colspan="${dim(month)+1}"><span>${esc(group.name)}</span></td></tr>`;for(const p of group.people){const b=personByKey(p.buddy);h+=`<tr><th scope="row" class="nm">${esc(p.name)}<span class="site">${esc(group.name)}</span></th>`;for(let d=1;d<=dim(month);d++){const r=p.days.get(d);h+=r?.is_leave?'<td class="iz">İzin</td>':r?.shift_code?`<td>${badge(r)}<span class="table-info">${esc(time(r.shift_start))}–${esc(time(r.shift_end))}</span></td>`:'<td>—</td>'}h+='</tr>'}}h+='</tbody></table></div>'}h+='</div>';root.innerHTML=h;bindNav(root)}
-function render(){if(!user)return;for(const v of ['me','day','all'])$(v).hidden=v!==view;const p=mine();$('who').textContent=profile?.full_name||'Personel';$('siteLabel').textContent=p?siteOf(p):'';if(view==='me')renderMe();else if(view==='day')renderDay();else renderAll()}
-async function start(u){user=u;try{await checkProfile();$('loginPanel').hidden=true;$('app').hidden=false;month=keyOf(new Date());day=dayKey(new Date());await load()}catch(e){clear();$('authMessage').textContent=e.message}}
-// Gerçek posta kutusu değil, uygulama giriş kimliği için kullanılır.
-const LOGIN_DOMAIN = 'personel.example.com';
-
-function loginEmail(value) {
-  const input = value.trim().toLowerCase();
-
-  if (!input) {
-    throw new Error('Kullanıcı adını yaz.');
-  }
-
-  // Geçiş sürecinde mevcut e-posta girişleri de çalışsın.
-  if (input.includes('@')) {
-    return input;
-  }
-
-  if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(input)) {
-    throw new Error(
-      'Kullanıcı adında Türkçe karakter veya boşluk kullanma. Örnek: demet.olgun'
-    );
-  }
-
-  return `${input}@${LOGIN_DOMAIN}`;
+async function checkProfile(uid){const {data,error}=await api.from('staff_profiles').select('user_id,full_name,active,roster_person_key').eq('user_id',uid).maybeSingle();if(error)throw error;if(!data?.active)throw new Error('Aktif personel profili bulunamadı.');return data}
+async function load(){if(!user)return;const job=++epoch,uid=user.id,k=month;loaded=false;people=[];notice('Çizelge yükleniyor…');render();try{const currentProfile=await checkProfile(uid);if(job!==epoch||user?.id!==uid)return;const rows=await getRows(k);if(job!==epoch||user?.id!==uid||month!==k)return;const map=new Map();for(const r of rows){if(!map.has(r.person_key))map.set(r.person_key,{key:r.person_key,name:r.full_name,location:r.location,order:r.display_order,buddy:r.buddy_key,inputOrder:map.size,days:new Map()});map.get(r.person_key).days.set(Number(r.day),r)}profile=currentProfile;people=[...map.values()];loaded=true;notice(rows.length?'':label(month)+' için ortak yayın bulunamadı.');render()}catch(e){if(job!==epoch)return;notice('Çizelge alınamadı: '+e.message,true);render()}}
+function nextShift(p){if(isExternal(p)||month!==keyOf(new Date()))return null;const now=new Date(),arr=[];for(const r of p.days.values()){if(!r.shift_code)continue;const st=at(month,r.day),en=at(month,r.day),[h,m]=time(r.shift_start).split(':').map(Number),[eh,em]=time(r.shift_end).split(':').map(Number);st.setHours(h,m,0,0);en.setHours(eh,em,0,0);if(en<=st)en.setDate(en.getDate()+1);if(en>now)arr.push({r,st,en})}return arr.sort((a,b)=>a.st-b.st)[0]||null}
+function buddyCard(p,d){if(!p.buddy)return '';const b=personByKey(p.buddy);if(!b)return card('Badin','<p class="sub">Badinin bu ayki ortak yayın kaydı bulunamadı.</p>','buddy');const heading=`<strong>${esc(b.name)}</strong><span class="site">${esc(siteOf(b))}</span>`;if(isExternal(b))return card('Badin',heading+externalNote(),'buddy');const r=b.days.get(d),my=p.days.get(d),same=!isExternal(p)&&Boolean(r?.shift_code&&r.shift_code===my?.shift_code&&siteOf(b)===siteOf(p));return card('Badin',heading+`<p class="sub">${d} ${esc(label(month))}: ${badge(r)} ${esc(r?.shift_code?timeLabel(r):textStatus(r))}</p>${same?'<div class="count">Aynı yerleşkede, aynı vardiyadasınız.</div>':''}`,'buddy')}
+function renderMe(){
+ const root=$('me'),p=mine();
+ if(!loaded){root.innerHTML=card('Nöbetlerim',nav()+'<p class="sub">Çizelge yükleniyor veya veri alınamadı.</p>');bindNav(root);return}
+ if(!p){const msg=profile?.roster_person_key?'Hesabına bağlı kişi anahtarı için bu ayın ortak yayınında kayıt bulunamadı. Tüm çizelgeyi görüntüleyebilir, yöneticiyle görüşebilirsin.':'Hesabına bir kişi anahtarı bağlanmamış. Yöneticiyle görüşebilirsin; isim benzerliğinden otomatik eşleştirme yapılmaz.';root.innerHTML=card('Nöbetlerim',nav()+`<p class="sub">${esc(msg)}</p>`);bindNav(root);return}
+ const detailDay=selected||(month===keyOf(new Date())?new Date().getDate():1);
+ if(isExternal(p)){root.innerHTML=card('Görev yerin',nav()+`<div class="big">${esc(siteOf(p))}</div>`+externalNote()+'<p class="sub">Nöbet sayısı, nöbet saati veya izin durumu bu ekrandaki boş alanlardan çıkarılmaz.</p>','hero')+buddyCard(p,detailDay);bindNav(root);return}
+ const next=nextShift(p);let content='';
+ if(next){const active=next.st<=new Date(),mins=Math.max(0,Math.ceil(((active?next.en:next.st)-new Date())/60000));content=card(active?'Şu an nöbettesin':'Gösterilen ayda sıradaki nöbetin',`<div class="big">${badge(next.r)} ${next.r.day} ${esc(label(month))}</div><div class="sub">${esc(timeLabel(next.r))}<span class="site">${esc(siteOf(p))}</span></div><div class="count">${active?'Bitmesine':'Başlamasına'} yaklaşık ${Math.floor(mins/1440)} gün ${Math.floor(mins%1440/60)} saat ${mins%60} dakika</div>`,'hero')}
+ else content=card('Sıradaki nöbetin',`<p class="sub">${month===keyOf(new Date())?'Gösterilen ayda yaklaşan yayınlanmış nöbet yok.':'Bu kart yalnızca içinde bulunduğumuz ay için yaklaşan nöbeti hesaplar.'} Diğer günleri takvimden inceleyebilirsin.</p>`,'hero');
+ const rows=[...p.days.values()],shifts=rows.filter(r=>r.shift_code);
+ content+=card('Ay özeti',`<div class="stats3"><div class="stat"><b>${shifts.length}</b><span>Nöbet</span></div><div class="stat"><b>${Math.round(shifts.reduce((s,r)=>s+hours(r),0)*100)/100}</b><span>Saat</span></div><div class="stat"><b>${rows.filter(r=>r.is_leave).length}</b><span>İzin günü</span></div></div>`);
+ content+=buddyCard(p,detailDay);content+='<div class="card">'+nav()+'<div class="calendar cal">';
+ for(const w of ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'])content+=`<div class="dow">${w}</div>`;
+ for(let i=0;i<(at(month,1).getDay()+6)%7;i++)content+='<div class="day empty"></div>';
+ for(let d=1;d<=dim(month);d++){const r=p.days.get(d),cls=r?.is_leave?'izin':['V1','V2','V3'].includes(r?.shift_code)?r.shift_code:'';content+=`<button type="button" class="day ${cls} ${dayKey(at(month,d))===dayKey(new Date())?'today':''} ${selected===d?'sel':''}" data-day="${d}" aria-label="${d} ${esc(label(month))}: ${esc(textStatus(r))}">${d}<small>${r?.is_leave?'İzin':r?.shift_code?esc(icon(r)+' '+r.shift_code):''}</small></button>`}
+ content+='</div>';
+ if(selected){const r=p.days.get(selected),same=people.filter(x=>x.key!==p.key&&!isExternal(x)&&siteOf(x)===siteOf(p)&&x.days.get(selected)?.shift_code);content+=`<p class="sub">${selected} ${esc(label(month))}: ${esc(textStatus(r))}</p>`;if(same.length)content+='<div class="sub">Aynı yerleşkede bugün nöbeti olanlar:<div class="list">'+same.map(x=>{const duty=x.days.get(selected);return `<div class="row"><div><div class="n">${esc(x.name)}</div><div class="t">${esc(duty.shift_code)} · ${esc(timeLabel(duty))}</div></div>${badge(duty)}</div>`}).join('')+'</div></div>'}
+ content+='</div>';root.innerHTML=content;bindNav(root);root.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{selected=selected===Number(b.dataset.day)?null:Number(b.dataset.day);renderMe()})
 }
-
-$('loginForm').onsubmit = async event => {
-  event.preventDefault();
-
-  const button = $('loginButton');
-  const message = $('authMessage');
-
-  button.disabled = true;
-  message.classList.remove('error');
-  message.textContent = 'Giriş yapılıyor…';
-  remember = $('remember').checked;
-
-  try {
-    const email = loginEmail($('email').value);
-    const password = $('password').value;
-
-    const { data, error } = await api.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data?.user) {
-      throw new Error('Oturum açılamadı. Tekrar dene.');
-    }
-
-    await start(data.user);
-  } catch (error) {
-    message.classList.add('error');
-    message.textContent =
-      'Giriş başarısız: ' +
-      (error?.message || 'Beklenmeyen bir hata oluştu.');
-  } finally {
-    $('password').value = '';
-    button.disabled = false;
+function renderDay(){
+ const root=$('day');let h=card('Bugün kim var',`<div class="daynav"><button type="button" class="navbtn" id="previousDay" aria-label="Önceki gün">‹</button><input aria-label="Gün seç" id="dayInput" type="date" value="${esc(day)}"><button type="button" class="navbtn" id="nextDay" aria-label="Sonraki gün">›</button></div><p class="notice">Seçilen takvim gününün bütün yayınlanmış vardiyaları gösterilir; yalnızca şu an görevde olanlar değildir. Yeni Yerleşke personelinin burada listelenmesi, o gün görevli oldukları anlamına gelmez.</p>`);
+ if(day.slice(0,7)!==month)h+=card('Farklı ay','<button type="button" class="chip" id="dayMonth">Bu tarihin ayını yükle</button>');
+ else if(loaded){const d=Number(day.slice(8));for(const group of groups()){
+  if(group.name===EXTERNAL_SITE){const names=group.people.map(p=>`<div class="row"><div><div class="n">${esc(p.name)}</div><div class="t">Yerleşke personeli · Günlük görev durumu burada gösterilmez</div></div></div>`).join('');h+=card(group.name,externalNote()+'<div class="list">'+names+'</div>');continue}
+  const assigned=group.people.filter(p=>p.days.get(d)?.shift_code),leave=group.people.filter(p=>p.days.get(d)?.is_leave);
+  let list=assigned.map(p=>{const r=p.days.get(d);return `<div class="row"><div><div class="n">${esc(p.name)}</div><div class="t">${esc(timeLabel(r))}</div></div>${badge(r)}</div>`}).join('');
+  if(!assigned.length)list='<p class="sub">Bu gün için yayınlanmış vardiya yok.</p>';
+  list+=leave.map(p=>`<div class="row"><div class="n">${esc(p.name)}</div><span class="badge b-izin">İzin</span></div>`).join('');h+=card(group.name,'<div class="list">'+list+'</div>');
+ }}else h+=card('Çizelge','<p class="sub">Çizelge yükleniyor veya veri alınamadı.</p>');
+ root.innerHTML=h;root.querySelector('#dayInput').onchange=e=>{if(e.target.value){day=e.target.value;renderDay()}};
+ for(const [id,delta]of [['previousDay',-1],['nextDay',1]])root.querySelector('#'+id).onclick=()=>{const [y,m,d]=day.split('-').map(Number);day=dayKey(new Date(y,m-1,d+delta));renderDay()};
+ const b=root.querySelector('#dayMonth');if(b)b.onclick=()=>{month=day.slice(0,7);selected=null;void load()}
+}
+function renderAll(){
+ const root=$('all'),externalCount=people.filter(isExternal).length;let h='<div class="card">'+nav()+`<p class="notice">${people.length} kişi · Yerleşke ve PDF sırası · Yalnızca görüntüleme${externalCount?' · '+externalCount+' kişi Yeni Yerleşke':''}</p>`;
+ if(loaded){h+='<div class="tbl-wrap"><table><caption>'+esc(label(month))+'</caption><thead><tr><th class="nm">Ad Soyad / Yerleşke</th>';
+ for(let d=1;d<=dim(month);d++){const weekend=[0,6].includes(at(month,d).getDay());h+=`<th class="${weekend?'we':''}">${d}<br>${['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][at(month,d).getDay()]}</th>`}
+ h+='</tr></thead><tbody>';
+ for(const group of groups()){
+  h+=`<tr class="sep"><td colspan="${dim(month)+1}"><span>${esc(group.name)}</span></td></tr>`;
+  for(const p of group.people){const b=personByKey(p.buddy);h+=`<tr class="${p.key===profile?.roster_person_key?'me':''}"><th scope="row" class="nm">${esc(p.name)}<span class="site">${esc(group.name)}</span>${b?'<span class="table-info">Badi: '+esc(b.name)+'</span>':''}${isExternal(p)?'<span class="external-tag">Planlama yerleşkede</span>':''}</th>`;
+   if(isExternal(p)){h+=`<td class="external-table" colspan="${dim(month)}"><div>${esc(EXTERNAL_NOTE)}</div></td></tr>`;continue}
+   for(let d=1;d<=dim(month);d++){const r=p.days.get(d);h+=r?.is_leave?'<td class="iz">İzin</td>':r?.shift_code?`<td>${badge(r)}<span class="table-info">${esc(timeLabel(r))}</span></td>`:'<td>—</td>'}h+='</tr>'
   }
-};async e=>{e.preventDefault();$('loginButton').disabled=true;remember=$('remember').checked;$('authMessage').textContent='Giriş yapılıyor…';try{const {data,error}=await api.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('password').value='';if(error)throw error;await start(data.user)}catch(e){$('authMessage').textContent='Giriş başarısız: '+e.message}finally{$('password').value='';$('loginButton').disabled=false}};
+ }h+='</tbody></table></div>';if(externalCount)h+=externalNote();
+ }h+='</div>';root.innerHTML=h;bindNav(root)
+}
+function render(){if(!user)return;for(const v of ['me','day','all'])$(v).hidden=v!==view;const p=mine();$('who').textContent=profile?.full_name||'Personel';$('siteLabel').textContent=p?siteOf(p):'';if(view==='me')renderMe();else if(view==='day')renderDay();else renderAll()}
+async function start(u){const job=++epoch;user=u;try{const currentProfile=await checkProfile(u.id);if(job!==epoch||user?.id!==u.id)return;profile=currentProfile;$('loginPanel').hidden=true;$('app').hidden=false;month=keyOf(new Date());day=dayKey(new Date());selected=null;await load()}catch(e){if(job!==epoch)return;clear();$('authMessage').textContent=e.message}}
+const LOGIN_DOMAIN='personel.example.com';
+function loginEmail(value){const input=value.trim().toLowerCase();if(!input)throw new Error('Kullanıcı adını yaz.');if(input.includes('@'))return input;if(!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(input))throw new Error('Kullanıcı adında Türkçe karakter veya boşluk kullanma. Örnek: demet.olgun');return `${input}@${LOGIN_DOMAIN}`}
+$('loginForm').onsubmit=async event=>{event.preventDefault();const button=$('loginButton'),message=$('authMessage');button.disabled=true;message.classList.remove('error');message.textContent='Giriş yapılıyor…';remember=$('remember').checked;try{const email=loginEmail($('email').value),password=$('password').value;const {data,error}=await api.auth.signInWithPassword({email,password});if(error)throw error;if(!data?.user)throw new Error('Oturum açılamadı. Tekrar dene.');await start(data.user)}catch(error){message.classList.add('error');message.textContent='Giriş başarısız: '+(error?.message||'Beklenmeyen bir hata oluştu.')}finally{$('password').value='';button.disabled=false}};
 $('logout').onclick=async()=>{if(!confirm('Bu cihazda çıkış yapılsın mı?'))return;const {error}=await api.auth.signOut({scope:'local'});storage.removeItem(STORAGE);clear();$('authMessage').textContent=error?'Çıkış sunucuda doğrulanamadı: '+error.message:'Oturum kapatıldı.'};
 $('refresh').onclick=()=>void load();
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===b));render();window.scrollTo(0,0)});
-api.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){clear();$('authMessage').textContent='Oturum kapandı. Yeniden giriş yap.'}});
+api.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT'){clear();$('authMessage').textContent='Oturum kapandı. Yeniden giriş yap.'}});
 const {data:{session},error}=await api.auth.getSession();
 if(session?.user)await start(session.user);else if(error)$('authMessage').textContent='Oturum yenilenemedi; tekrar giriş yap.';
 </script></body></html>
