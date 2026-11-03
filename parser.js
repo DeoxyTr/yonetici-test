@@ -242,4 +242,171 @@ function readPeople(items, header, period, pageNumber, warnings) {
 
           if (day === null) {
             throw new Error(
-              `${rawName}: bir vardiya gün sütu
+                            `${rawName}: bir vardiya gün sütununa yerleştirilemedi.`
+            );
+          }
+
+          const code = token.toUpperCase();
+
+          if (schedule[day]) {
+            throw new Error(
+              `${rawName}: ${day}. günde birden fazla kod bulundu.`
+            );
+          }
+
+          schedule[day] = code;
+        });
+      } else {
+        notes.push(cell.s);
+      }
+    }
+
+    if (!Object.keys(schedule).length) {
+      warnings.push(
+        `Sayfa ${pageNumber}: "${rawName}" için vardiya okunamadı. ` +
+        "Personel satırı mı, not/imza mı kontrol edilmeli."
+      );
+    }
+
+    if (notes.length) {
+      warnings.push(
+        `${rawName}: ayrıca "${notes.join(" / ")}" metni bulundu. ` +
+        "Bu metin otomatik nöbet veya izin kaydına çevrilmedi."
+      );
+    }
+
+    people.push({
+      id: normId(rawName),
+      name: titleCase(rawName),
+      loc: "",
+      s: schedule,
+      notes,
+      sourcePage: pageNumber
+    });
+  }
+
+  return people;
+}
+
+export async function parsePdf(pdfjs, data) {
+  const doc = await pdfjs.getDocument({
+    data,
+    verbosity: 0
+  }).promise;
+
+  const warnings = [
+    "Önizlemeyi PDF ile karşılaştırmadan yayınlamayın.",
+    "Renkler, izin aralıkları ve bölüm adları bu sürümde " +
+    "otomatik doğrulanmaz."
+  ];
+
+  const people = [];
+  const shifts = {};
+  let period = null;
+  let schedulePageCount = 0;
+
+  try {
+    for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
+      const page = await doc.getPage(pageNumber);
+      const content = await page.getTextContent();
+
+      const items = content.items
+        .filter(item => item.str && item.str.trim())
+        .map(item => ({
+          s: item.str.trim(),
+          x: item.transform[4],
+          y: item.transform[5],
+          w: item.width,
+          rot: Math.abs(item.transform[1]) > 0.01
+        }));
+
+      readShiftTimes(items, shifts, warnings, pageNumber);
+
+      const header = findDayHeader(items);
+
+      if (!header) {
+        warnings.push(
+          `Sayfa ${pageNumber}: gün tablosu bulunamadı, ` +
+          "sayfa atlandı. Nöbet içerip içermediğini kontrol edin."
+        );
+        continue;
+      }
+
+      const pagePeriod = findPeriod(
+        items.map(item => item.s).join(" ")
+      );
+
+      if (pagePeriod) {
+        if (
+          period &&
+          (period.y !== pagePeriod.y || period.m !== pagePeriod.m)
+        ) {
+          throw new Error(
+            "PDF içinde farklı aylara ait çizelgeler bulundu. " +
+            "Her ayı ayrı yükleyin."
+          );
+        }
+        period = pagePeriod;
+      }
+
+      if (!period) {
+        throw new Error(
+          `Sayfa ${pageNumber}: ay/yıl bulunamadı.`
+        );
+      }
+
+      const pagePeople = readPeople(
+        items, header, period, pageNumber, warnings
+      );
+
+      people.push(...pagePeople);
+      schedulePageCount++;
+      page.cleanup();
+    }
+
+    if (!period || !people.length) {
+      throw new Error(
+        "Okunabilir personel çizelgesi bulunamadı. " +
+        "Taranmış görüntü PDF veya farklı tablo düzeni olabilir."
+      );
+    }
+
+    const seen = new Set();
+
+    for (const person of people) {
+      if (seen.has(person.id)) {
+        warnings.push(
+          `"${person.name}" birden fazla kez bulundu. ` +
+          "Bu satırlar otomatik birleştirilmedi; eşleştirme kontrolü gerekli."
+        );
+      }
+
+      seen.add(person.id);
+
+      for (const code of new Set(Object.values(person.s))) {
+        if (!shifts[code]) {
+          warnings.push(
+            `${person.name}: ${code} kodunun saati okunamadı.`
+          );
+        }
+      }
+    }
+
+    return {
+      month: {
+        key: `${period.y}-${String(period.m).padStart(2, "0")}`,
+        y: period.y,
+        m: period.m,
+        title: `${MONTH_LABELS[period.m - 1]} ${period.y}`,
+        people,
+        shifts
+      },
+      warnings: Array.from(new Set(warnings)),
+      pageCount: doc.numPages,
+      schedulePageCount,
+      requiresReview: true
+    };
+  } finally {
+    await doc.destroy();
+  }
+}
