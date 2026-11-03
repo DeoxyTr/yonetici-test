@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Personel — Profil Testi</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#101c30;
+  color:#fff;
+  font:16px system-ui;
+}
+main{
+  max-width:520px;
+  margin:30px auto;
+  padding:22px;
+}
+h1{font-size:26px}
+p{line-height:1.6}
+.muted{color:#cbd5e1}
+input,button{
+  width:100%;
+  padding:14px;
+  margin:9px 0 20px;
+  border-radius:10px;
+  font:inherit;
+}
+input{
+  border:1px solid #64748b;
+  background:#17263d;
+  color:white;
+}
+button{
+  border:0;
+  background:#51d3b0;
+  color:#102334;
+  cursor:pointer;
+}
+button:disabled{opacity:.5}
+#sonuc{
+  white-space:pre-wrap;
+  padding:16px;
+  background:#17263d;
+  border-radius:10px;
+  overflow-wrap:anywhere;
+}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Personel — Profil testi</h1>
+
+<p class="muted">
+Sürüm: personel-profil-test-1.
+Bu sayfa çizelge kaydetmez veya yayınlamaz.
+</p>
+
+<p>
+Test personeli için oluşturduğun uygulama hesabını kullan.
+Yönetici hesabını, Supabase panel şifreni veya veritabanı
+şifreni kullanma.
+</p>
+
+<form id="form">
+<label for="email">Test personeli e-posta</label>
+<input
+  id="email"
+  type="email"
+  autocomplete="username"
+  required
+>
+
+<label for="sifre">Uygulama şifresi</label>
+<input
+  id="sifre"
+  type="password"
+  autocomplete="current-password"
+  required
+>
+
+<button id="giris" type="submit">
+Personel girişini kontrol et
+</button>
+</form>
+
+<div id="sonuc" role="status">
+Henüz test yapılmadı.
+</div>
+
+<button id="cikis" type="button" hidden>
+Çıkış yap ve ekranı temizle
+</button>
+
+<p class="muted">
+Bu kod şifreyi veya oturum anahtarını localStorage,
+sessionStorage ya da çerezlere yazmaz.
+Bu test, başka personelin kayıtlarına erişilemediğini
+tek başına kanıtlamaz.
+</p>
+</main>
+
+<script>
+const BASE = "https://rtqtildfytvyyrygcgyt.supabase.co";
+const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
+
+const $ = id => document.getElementById(id);
+
+let token = null;
+let busy = false;
+let generation = 0;
+
+async function logoutToken(value) {
+  if (!value) return;
+
+  try {
+    await fetch(BASE + "/auth/v1/logout?scope=local", {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: "Bearer " + value
+      }
+    });
+  } catch (_) {}
+}
+
+async function closeSession() {
+  generation++;
+
+  const previous = token;
+  token = null;
+
+  $("sifre").value = "";
+  $("email").value = "";
+  $("form").hidden = false;
+  $("cikis").hidden = true;
+
+  $("sonuc").textContent =
+    "Oturum bilgileri ekrandan temizlendi.";
+
+  await logoutToken(previous);
+}
+
+$("cikis").onclick = closeSession;
+
+window.addEventListener("pagehide", () => {
+  void closeSession();
+});
+
+async function readRows(path, accessToken) {
+  const response = await fetch(BASE + "/rest/v1/" + path, {
+    headers: {
+      apikey: KEY,
+      Authorization: "Bearer " + accessToken
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      "Veritabanı sorgusu başarısız. HTTP " + response.status
+    );
+  }
+
+  const rows = await response.json();
+
+  if (!Array.isArray(rows)) {
+    throw new Error("Veritabanı yanıtı beklenen biçimde değil.");
+  }
+
+  return rows;
+}
+
+$("form").onsubmit = async event => {
+  event.preventDefault();
+
+  if (busy) return;
+
+  busy = true;
+  $("giris").disabled = true;
+
+  const job = generation;
+  let attemptToken = null;
+
+  $("sonuc").textContent =
+    "Test personeli girişi kontrol ediliyor…";
+
+  try {
+    const response = await fetch(
+      BASE + "/auth/v1/token?grant_type=password",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: $("email").value.trim(),
+          password: $("sifre").value
+        })
+      }
+    );
+
+    $("sifre").value = "";
+
+    const session = await response.json();
+    attemptToken = session.access_token || null;
+
+    if (job !== generation) {
+      await logoutToken(attemptToken);
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        "Giriş başarısız. HTTP " + response.status +
+        "\nTest personeli e-postasını ve uygulama şifresini kontrol et."
+      );
+    }
+
+    if (!attemptToken || !session.user?.id) {
+      throw new Error("Oturum bilgisi alınamadı.");
+    }
+
+    token = attemptToken;
+
+    const userId = session.user.id;
+
+    const admins = await readRows(
+      "app_admins?select=user_id&user_id=eq." +
+      encodeURIComponent(userId),
+      attemptToken
+    );
+
+    if (job !== generation) return;
+
+    if (admins.some(row => row.user_id === userId)) {
+      throw new Error(
+        "Bu hesapta yönetici kaydı görünüyor.\n" +
+        "Personel testi için yönetici olmayan test personeli " +
+        "hesabıyla giriş yap."
+      );
+    }
+
+    const profiles = await readRows(
+      "staff_profiles" +
+      "?select=user_id,personnel_code,full_name,active" +
+      "&user_id=eq." + encodeURIComponent(userId),
+      attemptToken
+    );
+
+    if (job !== generation) return;
+
+    const profile = profiles.find(
+      row => row.user_id === userId
+    );
+
+    if (!profile) {
+      throw new Error(
+        "Hesap girişi başarılı ancak kendi personel profili okunamadı.\n" +
+        "Profil eksik olabilir veya erişim kuralları kaydı gizliyor olabilir."
+      );
+    }
+
+    if (profile.active !== true) {
+      throw new Error(
+        "Personel profili bulundu ancak aktif değil."
+      );
+    }
+
+    $("form").hidden = true;
+    $("cikis").hidden = false;
+
+    $("sonuc").textContent =
+      "✓ Personel hesabıyla giriş başarılı.\n" +
+      "✓ Bu sorguda yönetici kaydı dönmedi.\n" +
+      "✓ Kendi aktif personel profili okunabildi.\n\n" +
+      "Ad: " + profile.full_name + "\n" +
+      "Personel kodu: " + profile.personnel_code + "\n\n" +
+      "Bu adımda çizelge verisi okunmadı, değiştirilmedi veya yayınlanmadı.\n" +
+      "Bu sonuç tüm erişim kurallarının testi değildir.";
+  } catch (error) {
+    if (job === generation) {
+      const previous = token || attemptToken;
+      token = null;
+
+      $("sonuc").textContent = error.message;
+
+      await logoutToken(previous);
+    }
+  } finally {
+    $("sifre").value = "";
+    $("giris").disabled = false;
+    busy = false;
+  }
+};
+</script>
+</body>
+</html>
