@@ -129,13 +129,23 @@ function notice(t,error=false){$('notice').textContent=t;$('notice').classList.t
 function siteOf(p){return p.location||'Yerleşke belirtilmemiş'}
 function sortPeople(a,b){const ai=sites.indexOf(siteOf(a)),bi=sites.indexOf(siteOf(b));return (ai<0?99:ai)-(bi<0?99:bi)||(a.order??9999)-(b.order??9999)||a.inputOrder-b.inputOrder}
 function groups(){const out=[];for(const p of [...people].sort(sortPeople)){const name=siteOf(p);let group=out.find(g=>g.name===name);if(!group){group={name,people:[]};out.push(group)}group.people.push(p)}return out}
-function mine(){if(!profile)return null;const found=people.filter(p=>p.name.localeCompare(profile.full_name,'tr',{sensitivity:'base'})===0);return found.length===1?found[0]:null}
+function mine() {
+  const personKey = profile?.roster_person_key;
+
+  if (!personKey) {
+    return null;
+  }
+
+  return people.find(
+    person => person.key === personKey
+  ) || null;
+}{if(!profile)return null;const found=people.filter(p=>p.name.localeCompare(profile.full_name,'tr',{sensitivity:'base'})===0);return found.length===1?found[0]:null}
 function personByKey(k){return people.find(p=>p.key===k)}
 function nav(){return `<div class="cal-head"><button type="button" class="chip" data-month="-1">‹</button><div class="month-title">${esc(label(month))}</div><button type="button" class="chip" data-month="1">›</button></div>`}
 function bindNav(root){root.querySelectorAll('[data-month]').forEach(b=>b.onclick=()=>{const [y,m]=month.split('-').map(Number);month=keyOf(new Date(y,m-1+Number(b.dataset.month),1));selected=null;void load()})}
 function clear(){epoch++;user=null;profile=null;people=[];loaded=false;$('app').hidden=true;$('loginPanel').hidden=false;for(const k of ['me','day','all'])$(k).replaceChildren();$('who').textContent='';$('siteLabel').textContent=''}
 async function getRows(k){const rows=[];let offset=0;while(true){const {data,error}=await api.from('published_roster_days').select('person_key,full_name,day,shift_code,shift_start,shift_end,is_leave,location,display_order,buddy_key').eq('month_key',k).order('person_key').order('day').range(offset,offset+499);if(error)throw error;if(!Array.isArray(data))throw new Error('Beklenmeyen yanıt.');if(!data.length)return rows;rows.push(...data);offset+=data.length;if(rows.length>30000)throw new Error('Kayıt sınırı aşıldı; eksik liste gösterilmedi.')}}
-async function checkProfile(){const {data,error}=await api.from('staff_profiles').select('user_id,full_name,active').eq('user_id',user.id).maybeSingle();if(error)throw error;if(!data?.active)throw new Error('Aktif personel profili bulunamadı.');profile=data}
+async function checkProfile(){const {data,error}=await api.from('staff_profiles').select('user_id,full_name,active,roster_person_key').eq('user_id',user.id).maybeSingle();if(error)throw error;if(!data?.active)throw new Error('Aktif personel profili bulunamadı.');profile=data}
 async function load(){const job=++epoch;loaded=false;people=[];notice('Çizelge yükleniyor…');render();try{await checkProfile();const rows=await getRows(month);if(job!==epoch||!user)return;const map=new Map();for(const r of rows){if(!map.has(r.person_key))map.set(r.person_key,{key:r.person_key,name:r.full_name,location:r.location,order:r.display_order,buddy:r.buddy_key,inputOrder:map.size,days:new Map()});map.get(r.person_key).days.set(r.day,r)}people=[...map.values()];loaded=true;notice(rows.length?'':label(month)+' için ortak yayın bulunamadı.');render()}catch(e){if(job!==epoch)return;notice('Çizelge alınamadı: '+e.message,true);render()}}
 function nextShift(p){if(month!==keyOf(new Date()))return null;const now=new Date(),arr=[];for(const r of p.days.values()){if(!r.shift_code)continue;const st=at(month,r.day),en=at(month,r.day),[h,m]=time(r.shift_start).split(':').map(Number),[eh,em]=time(r.shift_end).split(':').map(Number);st.setHours(h,m,0,0);en.setHours(eh,em,0,0);if(en<=st)en.setDate(en.getDate()+1);if(en>now)arr.push({r,st,en})}return arr.sort((a,b)=>a.st-b.st)[0]||null}
 function buddyCard(p,d){if(!p.buddy)return '';const b=personByKey(p.buddy);if(!b)return card('Badin','<p class="sub">Badinin bu ayki ortak yayın kaydı bulunamadı.</p>','buddy');const r=b.days.get(d),my=p.days.get(d),same=Boolean(r?.shift_code&&r.shift_code===my?.shift_code&&siteOf(b)===siteOf(p));return card('Badin',`<strong>${esc(b.name)}</strong><span class="site">${esc(siteOf(b))}</span><p class="sub">${d} ${esc(label(month))}: ${badge(r)} ${esc(r?.shift_code?timeLabel(r):textStatus(r))}</p>${same?'<div class="count">Aynı yerleşkede, aynı vardiyadasınız.</div>':''}`,'buddy')}
