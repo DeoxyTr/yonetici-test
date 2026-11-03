@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nöbetlerim — Personel Testi</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101c30;color:#fff;font:16px system-ui}
+main{max-width:500px;margin:25px auto;padding:22px}
+h1{font-size:27px}
+p{line-height:1.6;color:#cbd5e1}
+input,button{width:100%;padding:14px;margin:9px 0 18px;
+border-radius:10px;font:inherit}
+input{background:#17263d;color:white;border:1px solid #64748b}
+button{border:0;background:#51d3b0;color:#102334;font-weight:700}
+button:disabled{opacity:.5}
+article,#sonuc{background:#17263d;border-radius:12px;
+padding:16px;margin:15px 0;overflow-wrap:anywhere}
+h2{font-size:20px}
+li{margin:12px 0;line-height:1.6}
+#sonuc{white-space:pre-wrap}
+</style>
+</head>
+<body>
+<main>
+<h1>Nöbetlerim</h1>
+<p>Personel erişim testi. Yeni oluşturduğun test hesabıyla giriş yap.</p>
+
+<form id="form">
+<label for="email">E-posta</label>
+<input id="email" type="email" autocomplete="username" required>
+<label for="sifre">Uygulama şifresi</label>
+<input id="sifre" type="password"
+autocomplete="current-password" required>
+<button id="giris" type="submit">Nöbetlerimi getir</button>
+</form>
+
+<div id="sonuc" role="status">Henüz giriş yapılmadı.</div>
+<section id="kayitlar"></section>
+<button id="temizle" type="button">Ekranı temizle</button>
+<p>Şifre ve oturum tarayıcı depolamasına kaydedilmez.
+Test tamamlanınca oturum kapatma isteği gönderilir.</p>
+</main>
+
+<script>
+const URL = "https://rtqtildfytvyyrygcgyt.supabase.co";
+const KEY = "sb_publishable_lTqLOnK-VL5TMwQm0f9rvA_lWDI7iSJ";
+const $ = id => document.getElementById(id);
+const form = $("form");
+const email = $("email");
+const sifre = $("sifre");
+const giris = $("giris");
+const sonuc = $("sonuc");
+const kayitlar = $("kayitlar");
+
+function temizle() {
+  kayitlar.replaceChildren();
+  sifre.value = "";
+  sonuc.textContent = "Ekran temizlendi.";
+}
+$("temizle").onclick = temizle;
+window.addEventListener("pagehide", temizle);
+window.addEventListener("pageshow", event => {
+  if (event.persisted) temizle();
+});
+
+function goster(kayit) {
+  const kart = document.createElement("article");
+  const baslik = document.createElement("h2");
+  baslik.textContent = kayit.title;
+  kart.append(baslik);
+
+  const ay = document.createElement("p");
+  ay.textContent = "Dönem: " + kayit.month_key;
+  kart.append(ay);
+
+  const veri = kayit.data;
+  if (veri && veri.test === true) {
+    const uyari = document.createElement("p");
+    uyari.textContent = "TEST VERİSİ — Gerçek nöbet değildir.";
+    kart.append(uyari);
+  }
+
+  if (veri && Array.isArray(veri.shifts)) {
+    const liste = document.createElement("ul");
+    for (const nobet of veri.shifts) {
+      const satir = document.createElement("li");
+      satir.textContent =
+        (nobet.date || "") + " · " +
+        (nobet.start || "") + "–" + (nobet.end || "") +
+        (nobet.note ? " · " + nobet.note : "");
+      liste.append(satir);
+    }
+    if (!veri.shifts.length) {
+      const bilgi = document.createElement("p");
+      bilgi.textContent = "Bu dönemde listelenen nöbet yok.";
+      kart.append(bilgi);
+    }
+    kart.append(liste);
+  } else {
+    const bilgi = document.createElement("p");
+    bilgi.textContent =
+      "Kayıt alındı; veri biçimi bu test ekranıyla uyumlu değil.";
+    kart.append(bilgi);
+  }
+  kayitlar.append(kart);
+}
+
+form.onsubmit = async event => {
+  event.preventDefault();
+  giris.disabled = true;
+  kayitlar.replaceChildren();
+  sonuc.textContent = "Giriş kontrol ediliyor…";
+  let token = null;
+  let asama = "giris";
+
+  try {
+    const yanit = await fetch(
+      URL + "/auth/v1/token?grant_type=password",
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: email.value.trim(),
+          password: sifre.value
+        })
+      }
+    );
+    sifre.value = "";
+    const oturum = await yanit.json();
+    if (!yanit.ok) {
+      sonuc.textContent = "Giriş başarısız. HTTP " + yanit.status +
+        "\n" + (oturum.msg || oturum.error_description ||
+        "E-posta ve uygulama şifreni kontrol et.");
+      return;
+    }
+
+    token = oturum.access_token;
+    if (!token || !oturum.user?.id) {
+      throw new Error("Oturum bilgisi eksik.");
+    }
+
+    asama = "veri";
+    sonuc.textContent = "Giriş başarılı. Nöbetlerin alınıyor…";
+    const sorgu = new URLSearchParams({
+      select: "month_key,title,data",
+      user_id: "eq." + oturum.user.id,
+      published: "eq.true",
+      order: "month_key.desc"
+    });
+
+    const cevap = await fetch(
+      URL + "/rest/v1/staff_schedules?" + sorgu,
+      {
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + token
+        },
+        cache: "no-store"
+      }
+    );
+    if (!cevap.ok) {
+      sonuc.textContent =
+        "Giriş başarılı, nöbetler alınamadı. HTTP " + cevap.status;
+      return;
+    }
+
+    const satirlar = await cevap.json();
+    if (!Array.isArray(satirlar)) throw new Error("Beklenmeyen yanıt.");
+
+    for (const satir of satirlar) goster(satir);
+    sonuc.textContent = satirlar.length
+      ? "✓ Giriş başarılı.\n" + satirlar.length +
+        " yayınlanmış dönem kaydı alındı."
+      : "✓ Giriş başarılı.\nGörüntülenebilir yayınlanmış kayıt bulunamadı.";
+  } catch (_) {
+    sonuc.textContent = asama === "giris"
+      ? "Giriş testi tamamlanamadı. Bağlantıyı kontrol et."
+      : "Giriş başarılı; nöbet sorgusu tamamlanamadı.";
+  } finally {
+    sifre.value = "";
+    if (token) {
+      try {
+        await fetch(URL + "/auth/v1/logout?scope=local", {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: "Bearer " + token
+          }
+        });
+      } catch (_) {}
+    }
+    token = null;
+    giris.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
