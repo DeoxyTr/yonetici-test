@@ -89,9 +89,18 @@ tr.sep td span{position:sticky;left:10px;padding-left:10px}
 .btn{display:inline-block;padding:10px 14px;border-radius:10px;background:var(--acc);color:#0f1b2d;font-weight:700}
 .btn.ghost{background:var(--card);color:var(--tx);border:1px solid var(--line)}
 
-[hidden]{display:none!important}.auth{max-width:440px;margin:36px auto;padding:20px}.auth input[type=email],.auth input[type=password]{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--tx);padding:13px;margin:6px 0 16px;font:inherit}.auth label{display:block;color:var(--mut);font-size:14px}.auth .remember{display:flex;align-items:center;gap:8px;margin:6px 0 16px}.auth .btn{width:100%;font:inherit}.status{white-space:pre-wrap;color:var(--mut);font-size:14px;line-height:1.5;margin:10px 0}.error{color:#ffb2b2}.site{display:block;font-size:12px;color:var(--mut);font-weight:400;line-height:1.5;margin-top:3px}.group-title{font-size:16px;color:var(--acc);padding:8px 0;margin:4px 0}.buddy{border-left:3px solid var(--acc)}.row-label{display:block}.month-title{font-weight:700}.table-info{display:block;font-size:10px;color:var(--mut);margin-top:4px}input[type=date]{background:var(--bg2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px;font:inherit}.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.b-generic{background:#98acbf}.toolbar{display:flex;gap:8px;align-items:center}.notice{font-size:12px;color:var(--mut);line-height:1.5}button:disabled{opacity:.5;cursor:default}caption{text-align:left;padding:10px;color:var(--mut)}
+[hidden]{display:none!important}.auth{max-width:440px;margin:36px auto;padding:20px}.auth input[type=text],.auth input[type=password]{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--tx);padding:13px;margin:6px 0 16px;font:inherit}.auth label{display:block;color:var(--mut);font-size:14px}.auth .remember{display:flex;align-items:center;gap:8px;margin:6px 0 16px}.auth .btn{width:100%;font:inherit}.status{white-space:pre-wrap;color:var(--mut);font-size:14px;line-height:1.5;margin:10px 0}.error{color:#ffb2b2}.site{display:block;font-size:12px;color:var(--mut);font-weight:400;line-height:1.5;margin-top:3px}.group-title{font-size:16px;color:var(--acc);padding:8px 0;margin:4px 0}.buddy{border-left:3px solid var(--acc)}.row-label{display:block}.month-title{font-weight:700}.table-info{display:block;font-size:10px;color:var(--mut);margin-top:4px}input[type=date]{background:var(--bg2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px;font:inherit}.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.b-generic{background:#98acbf}.toolbar{display:flex;gap:8px;align-items:center}.notice{font-size:12px;color:var(--mut);line-height:1.5}button:disabled{opacity:.5;cursor:default}caption{text-align:left;padding:10px;color:var(--mut)}
 </style></head><body>
-<section id="loginPanel" class="auth"><div class="brand">TTK · NÖBET ÇİZELGESİ</div><h1 style="margin:12px 0">Hoş geldin</h1><p class="sub">Nöbetlerin, görev yerin ve badin tek ekranda.</p><form id="loginForm" style="margin-top:20px"><label for="email">E-posta</label><input id="email" type="email" autocomplete="username" required><label for="password">Uygulama şifresi</label><input id="password" type="password" autocomplete="current-password" required><label class="remember"><input id="remember" type="checkbox" checked> Bu cihazda beni hatırla</label><button id="loginButton" class="btn" type="submit">Giriş yap</button></form><p id="authMessage" class="status" role="status"></p><p class="notice">Paylaşılan cihazda “Beni hatırla”yı kapat. Bu sayfa şifreni saklamaz; seçiliyse oturum anahtarları bu tarayıcıda tutulur.</p></section>
+<section id="loginPanel" class="auth"><div class="brand">TTK · NÖBET ÇİZELGESİ</div><h1 style="margin:12px 0">Hoş geldin</h1><p class="sub">Nöbetlerin, görev yerin ve badin tek ekranda.</p><form id="loginForm" style="margin-top:20px"><label for="email">Kullanıcı adı</label>
+<input
+  id="email"
+  type="text"
+  autocomplete="username"
+  autocapitalize="none"
+  spellcheck="false"
+  placeholder="Örnek: demet.olgun"
+  required
+><label for="password">Uygulama şifresi</label><input id="password" type="password" autocomplete="current-password" required><label class="remember"><input id="remember" type="checkbox" checked> Bu cihazda beni hatırla</label><button id="loginButton" class="btn" type="submit">Giriş yap</button></form><p id="authMessage" class="status" role="status"></p><p class="notice">Paylaşılan cihazda “Beni hatırla”yı kapat. Bu sayfa şifreni saklamaz; seçiliyse oturum anahtarları bu tarayıcıda tutulur.</p></section>
 <div id="app" hidden><header class="top"><div><div class="brand">TTK · NÖBET ÇİZELGESİ</div><div id="who" class="who"></div><span id="siteLabel" class="site"></span></div><div class="toolbar"><button id="refresh" class="chip" type="button">Yenile</button><button id="logout" class="chip" type="button">Çıkış</button></div></header><main class="wrap"><p id="notice" class="status" role="status"></p><section id="me"></section><section id="day" hidden></section><section id="all" hidden></section><p class="foot">Sürüm: yerleşke-badi-1 · Yalnızca yayınlanmış çizelge</p></main><nav class="tabs"><div><button type="button" data-view="me" class="on">☀ Nöbetlerim</button><button type="button" data-view="day">◷ Bugün kim var</button><button type="button" data-view="all">▦ Tüm çizelge</button></div></nav></div>
 <script type="module">
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
@@ -178,7 +187,69 @@ function renderDay(){const root=$('day');let h=card('Bugün kim var',`<div class
 function renderAll(){const root=$('all');let h='<div class="card">'+nav()+`<p class="notice">${people.length} kişi · Yerleşke ve PDF sırası · Yalnızca görüntüleme</p>`;if(loaded){h+='<div class="tbl-wrap"><table><caption>'+esc(label(month))+'</caption><thead><tr><th class="nm">Ad Soyad / Yerleşke</th>';for(let d=1;d<=dim(month);d++)h+=`<th>${d}<br>${['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][at(month,d).getDay()]}</th>`;h+='</tr></thead><tbody>';for(const group of groups()){h+=`<tr class="sep"><td colspan="${dim(month)+1}"><span>${esc(group.name)}</span></td></tr>`;for(const p of group.people){const b=personByKey(p.buddy);h+=`<tr><th scope="row" class="nm">${esc(p.name)}<span class="site">${esc(group.name)}</span></th>`;for(let d=1;d<=dim(month);d++){const r=p.days.get(d);h+=r?.is_leave?'<td class="iz">İzin</td>':r?.shift_code?`<td>${badge(r)}<span class="table-info">${esc(time(r.shift_start))}–${esc(time(r.shift_end))}</span></td>`:'<td>—</td>'}h+='</tr>'}}h+='</tbody></table></div>'}h+='</div>';root.innerHTML=h;bindNav(root)}
 function render(){if(!user)return;for(const v of ['me','day','all'])$(v).hidden=v!==view;const p=mine();$('who').textContent=profile?.full_name||'Personel';$('siteLabel').textContent=p?siteOf(p):'';if(view==='me')renderMe();else if(view==='day')renderDay();else renderAll()}
 async function start(u){user=u;try{await checkProfile();$('loginPanel').hidden=true;$('app').hidden=false;month=keyOf(new Date());day=dayKey(new Date());await load()}catch(e){clear();$('authMessage').textContent=e.message}}
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;remember=$('remember').checked;$('authMessage').textContent='Giriş yapılıyor…';try{const {data,error}=await api.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('password').value='';if(error)throw error;await start(data.user)}catch(e){$('authMessage').textContent='Giriş başarısız: '+e.message}finally{$('password').value='';$('loginButton').disabled=false}};
+// Gerçek posta kutusu değil, uygulama giriş kimliği için kullanılır.
+const LOGIN_DOMAIN = 'personel.example.com';
+
+function loginEmail(value) {
+  const input = value.trim().toLowerCase();
+
+  if (!input) {
+    throw new Error('Kullanıcı adını yaz.');
+  }
+
+  // Geçiş sürecinde mevcut e-posta girişleri de çalışsın.
+  if (input.includes('@')) {
+    return input;
+  }
+
+  if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(input)) {
+    throw new Error(
+      'Kullanıcı adında Türkçe karakter veya boşluk kullanma. Örnek: demet.olgun'
+    );
+  }
+
+  return `${input}@${LOGIN_DOMAIN}`;
+}
+
+$('loginForm').onsubmit = async event => {
+  event.preventDefault();
+
+  const button = $('loginButton');
+  const message = $('authMessage');
+
+  button.disabled = true;
+  message.classList.remove('error');
+  message.textContent = 'Giriş yapılıyor…';
+  remember = $('remember').checked;
+
+  try {
+    const email = loginEmail($('email').value);
+    const password = $('password').value;
+
+    const { data, error } = await api.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.user) {
+      throw new Error('Oturum açılamadı. Tekrar dene.');
+    }
+
+    await start(data.user);
+  } catch (error) {
+    message.classList.add('error');
+    message.textContent =
+      'Giriş başarısız: ' +
+      (error?.message || 'Beklenmeyen bir hata oluştu.');
+  } finally {
+    $('password').value = '';
+    button.disabled = false;
+  }
+};async e=>{e.preventDefault();$('loginButton').disabled=true;remember=$('remember').checked;$('authMessage').textContent='Giriş yapılıyor…';try{const {data,error}=await api.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('password').value='';if(error)throw error;await start(data.user)}catch(e){$('authMessage').textContent='Giriş başarısız: '+e.message}finally{$('password').value='';$('loginButton').disabled=false}};
 $('logout').onclick=async()=>{if(!confirm('Bu cihazda çıkış yapılsın mı?'))return;const {error}=await api.auth.signOut({scope:'local'});storage.removeItem(STORAGE);clear();$('authMessage').textContent=error?'Çıkış sunucuda doğrulanamadı: '+error.message:'Oturum kapatıldı.'};
 $('refresh').onclick=()=>void load();
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===b));render();window.scrollTo(0,0)});
