@@ -104,7 +104,8 @@ function findDayHeader(items) {
 function readShiftTimes(items, shifts, warnings, pageNumber) {
   for (const item of items) {
     const pattern =
-      /(V\d+)\s*:\s*(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/gi;
+          const pattern =
+      /(V\d+)\s*:\s*(?:SABAH|AKŞAM)?\s*(\d{1,2})[:.](\d{2})\s*(?:[-–—]\s*)?(?:SABAH|AKŞAM)?\s*(\d{1,2})[:.](\d{2})/gi;
 
     for (const match of item.s.matchAll(pattern)) {
       const code = match[1].toUpperCase();
